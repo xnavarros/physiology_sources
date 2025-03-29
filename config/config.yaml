@@ -1,0 +1,42 @@
+subjects:
+  - BJ25
+  - JS08
+  - LP26
+  - MC05
+  - MN23
+  - OL04
+  - SB27
+  - TH24
+  - VA14
+  - VS06
+
+paths:
+  base_data_dir: "data/raw"
+  source_estimates_dir: "data/source_estimates"
+  statistics_dir: "data/statistical_results"
+  roi_dir: "data/roi_analysis"
+
+params:
+  freq1: 8
+  freq2: 13
+  tmin: -1.5
+  tmax: 0.5
+  baseline_intervals: [-1.5, -1.25]
+  time_intervals:
+    - [-1.25, -1]
+    - [-1, -0.75]
+    - [-0.75, -0.5]
+    - [-0.5, -0.25]
+    - [-0.25, 0]
+    - [0, 0.25]
+    - [0.25, 0.5]
+  apply_td_baseline: true
+  apply_notch: false
+  apply_ica: true
+  n_ica_components: 20
+
+stats:
+  n_permutations: 1000
+  threshold: 4.5
+  n_epochs: 10
+  significance_level: 0.01
