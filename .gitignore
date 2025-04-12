@@ -11,3 +11,7 @@ __pycache__/
 # Virtual environments
 .venv/
 env/
+
+# Ignore all JSON and CSV files
+*.json
+*.csv

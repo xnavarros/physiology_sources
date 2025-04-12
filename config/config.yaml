@@ -15,6 +15,7 @@ paths:
   source_estimates_dir: "data/source_estimates"
   statistics_dir: "data/statistical_results"
   roi_dir: "data/roi_analysis"
+  brain_plots_dir: "figures/brain_plots"
 
 params:
   freq1: 8
@@ -36,7 +37,7 @@ params:
   n_ica_components: 20
 
 stats:
-  n_permutations: 1000
-  threshold: 4.5
+  n_permutations: 500
+  threshold: 2.0
   n_epochs: 10
-  significance_level: 0.01
+  significance_level: 0.05

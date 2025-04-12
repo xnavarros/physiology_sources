@@ -5,12 +5,22 @@ import mne
 import numpy as np
 import pandas as pd
 import json
+import yaml
 
-# Define subject list
-subjects = ['BJ25', 'JS08', 'LP26', 'MC05', 'MN23', 'OL04', 'SB27', 'TH24', 'VA14', 'VS06']
+def load_config(config_path="config/config.yaml"):
+    with open(config_path, 'r') as f:
+        return yaml.safe_load(f)
 
-# Define base directory for raw data
-base_data_dir = "/Users/xavier/work/data/Physiology"
+
+config = load_config()
+subjects = config['subjects']
+base_data_dir = config['paths']['base_data_dir']
+output_base_dir = config['paths']['roi_dir']
+time_windows = config['params']['time_intervals']
+source_estimates_dir_base = config['paths']['source_estimates_dir']
+statistical_results_dir_base = config['paths']['statistics_dir']
+suffix = str(config['params']['freq1']) + "_" + str(config['params']['freq2'])
+
 
 # Define output directory for grand average analysis
 output_base_dir = "roi_analysis"
@@ -113,8 +123,8 @@ def analyze_roi_for_subject(subject, stc_dict_VS, stc_dict_LD, significant_masks
             roi_results[window_idx]['VS'] = roi_data_VS
             
             # Save to CSV
-            csv_file = op.join(subject_dir, f"{subject}_{window_idx}_VS_roi.csv")
-            metadata_file = op.join(subject_dir, f"{subject}_{window_idx}_VS_metadata.json")
+            csv_file = op.join(subject_dir, f"{subject}_{window_idx}_{suffix}_VS_roi.csv")
+            metadata_file = op.join(subject_dir, f"{subject}_{window_idx}_{suffix}_VS_metadata.json")
             save_roi_data_to_csv(roi_data_VS, csv_file, metadata_file, 'VS', window_idx, scaling_type='μV/mm²')
         
         if window_idx in stc_dict_LD and len(stc_dict_LD[window_idx]) > 0:
@@ -123,8 +133,8 @@ def analyze_roi_for_subject(subject, stc_dict_VS, stc_dict_LD, significant_masks
             roi_results[window_idx]['LD'] = roi_data_LD
             
             # Save to CSV
-            csv_file = op.join(subject_dir, f"{subject}_{window_idx}_LD_roi.csv")
-            metadata_file = op.join(subject_dir, f"{subject}_{window_idx}_LD_metadata.json")
+            csv_file = op.join(subject_dir, f"{subject}_{window_idx}_{suffix}_LD_roi.csv")
+            metadata_file = op.join(subject_dir, f"{subject}_{window_idx}_{suffix}_LD_metadata.json")
             save_roi_data_to_csv(roi_data_LD, csv_file, metadata_file, 'LD', window_idx, scaling_type='μV/mm²')
         
         if (window_idx in stc_dict_VS and len(stc_dict_VS[window_idx]) > 0 and
@@ -135,20 +145,20 @@ def analyze_roi_for_subject(subject, stc_dict_VS, stc_dict_LD, significant_masks
             roi_results[window_idx]['VS-LD'] = roi_data_diff
             
             # Save to CSV
-            csv_file = op.join(subject_dir, f"{subject}_{window_idx}_VS-LD_roi.csv")
-            metadata_file = op.join(subject_dir, f"{subject}_{window_idx}_VS-LD_metadata.json")
+            csv_file = op.join(subject_dir, f"{subject}_{window_idx}_{suffix}_VS-LD_roi.csv")
+            metadata_file = op.join(subject_dir, f"{subject}_{window_idx}_{suffix}_VS-LD_metadata.json")
             save_roi_data_to_csv(roi_data_diff, csv_file, metadata_file, 'VS-LD', window_idx, scaling_type='μV/mm²')
     
     return roi_results
 
-def compute_grand_average(subjects, time_windows, source_estimates_dir, condition):
+def compute_grand_average(subjects, time_windows, condition):
     grand_average_stcs = {}
     
     for window_idx in [f'win_{i}' for i in range(len(time_windows))]:
         stc_list = []
         
         for subject in subjects:
-            stc_files = [op.join(source_estimates_dir, subject, f"stc_{condition}_{window_idx}_epoch{i}.stc") for i in range(10)]
+            stc_files = [op.join(source_estimates_dir_base, subject, f"stc_{condition}_{window_idx}_epoch{i}_{suffix}.h5") for i in range(10)]
             stc_list.extend([mne.read_source_estimate(f) for f in stc_files])
         
         # Compute grand average
@@ -159,17 +169,14 @@ def compute_grand_average(subjects, time_windows, source_estimates_dir, conditio
     return grand_average_stcs
 
 if __name__ == "__main__":
-    # Define time windows
-    time_windows = [[-1.25, -1],[-1, -0.75], [-0.75, -0.5], [-0.5, -0.25], [-0.25, 0], [0, 0.25], [0.25, 0.5]]
-    
     # Compute grand average for VS and LD conditions
-    grand_average_stcs_VS = compute_grand_average(subjects, time_windows, "source_estimates", "VS")
-    grand_average_stcs_LD = compute_grand_average(subjects, time_windows, "source_estimates", "LD")
+    grand_average_stcs_VS = compute_grand_average(subjects, time_windows, "VS")
+    grand_average_stcs_LD = compute_grand_average(subjects, time_windows, "LD")
     
     # Load significant masks (assuming the same mask for all subjects)
     significant_masks = {}
     for window_idx in [f'win_{i}' for i in range(len(time_windows))]:
-        results_file = op.join("statistical_results", subjects[0], f"cluster_results_{window_idx}.npy")
+        results_file = op.join(statistical_results_dir_base, subjects[0], f"cluster_results_{window_idx}_{suffix}.npy")
         if op.exists(results_file):
             results = np.load(results_file, allow_pickle=True).item()
             significant_masks[window_idx] = np.array(results['significant_mask'])

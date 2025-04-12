@@ -5,9 +5,10 @@ import os.path as op
 import mne
 import numpy as np
 from mne.minimum_norm import make_inverse_operator, apply_inverse
+import h5py
 import yaml
 
-def load_config(config_path="scripts/config.yaml"):
+def load_config(config_path="config/config.yaml"):
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
@@ -124,14 +125,16 @@ def compute_source_estimates(epochs_VS, epochs_LD, fwd, time_windows):
 def save_source_estimates(stc_dict_VS, stc_dict_LD, output_dir):
     if not op.exists(output_dir):
         os.makedirs(output_dir)
+
+    suffix = f"{params['freq1']}_{params['freq2']}"
     
     for window_idx, stc_list in stc_dict_VS.items():
         for i, stc in enumerate(stc_list):
-            stc.save(op.join(output_dir, f"stc_VS_{window_idx}_epoch{i}.stc"), overwrite=True)
+             stc.save(op.join(output_dir, f"stc_VS_{window_idx}_epoch{i}_{suffix}.h5"),ftype='h5', overwrite=True)
     
     for window_idx, stc_list in stc_dict_LD.items():
         for i, stc in enumerate(stc_list):
-            stc.save(op.join(output_dir, f"stc_LD_{window_idx}_epoch{i}.stc"), overwrite=True)
+            stc.save(op.join(output_dir, f"stc_LD_{window_idx}_epoch{i}_{suffix}.h5"),ftype='h5', overwrite=True)
 
 if __name__ == "__main__":
     # Loop through all subjects

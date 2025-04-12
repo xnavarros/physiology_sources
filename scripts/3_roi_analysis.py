@@ -5,15 +5,21 @@ import os.path as op
 import mne
 import numpy as np
 import pandas as pd
+import yaml
 
-# Define subject list
-subjects = ['BJ25', 'JS08', 'LP26', 'MC05', 'MN23', 'OL04', 'SB27', 'TH24', 'VA14', 'VS06']
+def load_config(config_path="config/config.yaml"):
+    with open(config_path, 'r') as f:
+        return yaml.safe_load(f)
 
-# Define base directory for raw data
-base_data_dir = "/Users/xavier/work/data/Physiology"
-
-# Define output directory for ROI analysis
-output_base_dir = "roi_analysis"
+# Load config
+config = load_config()
+subjects = config['subjects']
+time_windows = config['params']['time_intervals']
+base_data_dir = config['paths']['base_data_dir']
+output_base_dir = config['paths']['roi_dir']
+statistics_base_dir = config['paths']['statistics_dir']
+source_estimates_dir_base = config['paths']['source_estimates_dir']
+suffix = str(config['params']['freq1']) + "_" + str(config['params']['freq2'])
 
 def extract_roi_data(stc, mask, labels, roi_names=None, scaling_factor=1e6):
     if isinstance(mask, list):
@@ -93,11 +99,9 @@ def save_roi_data_to_csv(roi_data, filename, condition=None, window_idx=None, sc
     
     return filename
 
-def analyze_roi_for_subject(subject, stc_dict_VS, stc_dict_LD, significant_masks, time_windows, output_dir=None, scaling_factor=1e6):
-    if output_dir is None:
-        output_dir = "roi_analysis"
-    
-    subject_dir = op.join(output_dir, subject)
+def analyze_roi_for_subject(subject, stc_dict_VS, stc_dict_LD, significant_masks, scaling_factor=1e6):
+
+    subject_dir = op.join(output_base_dir, subject)
     if not op.exists(subject_dir):
         os.makedirs(subject_dir)
     
@@ -111,6 +115,7 @@ def analyze_roi_for_subject(subject, stc_dict_VS, stc_dict_LD, significant_masks
     
     for i, window in enumerate(time_windows):
         window_idx = f'win_{i}'
+        print(f"Processing window: {window_idx}")
         roi_results[window_idx] = {}
         
         if window_idx not in significant_masks:
@@ -122,14 +127,14 @@ def analyze_roi_for_subject(subject, stc_dict_VS, stc_dict_LD, significant_masks
             stc_VS = stc_dict_VS[window_idx][0]
             roi_data_VS = extract_roi_data(stc_VS, mask, labels, scaling_factor=scaling_factor)
             roi_results[window_idx]['VS'] = roi_data_VS
-            csv_file = op.join(subject_dir, f"{subject}_{window_idx}_VS_roi.csv")
+            csv_file = op.join(subject_dir, f"{subject}_{window_idx}_{suffix}_VS_roi.csv")
             save_roi_data_to_csv(roi_data_VS, csv_file, 'VS', window_idx, scaling_type='μV/mm²')
         
         if window_idx in stc_dict_LD and len(stc_dict_LD[window_idx]) > 0:
             stc_LD = stc_dict_LD[window_idx][0]
             roi_data_LD = extract_roi_data(stc_LD, mask, labels, scaling_factor=scaling_factor)
             roi_results[window_idx]['LD'] = roi_data_LD
-            csv_file = op.join(subject_dir, f"{subject}_{window_idx}_LD_roi.csv")
+            csv_file = op.join(subject_dir, f"{subject}_{window_idx}_{suffix}_LD_roi.csv")
             save_roi_data_to_csv(roi_data_LD, csv_file, 'LD', window_idx, scaling_type='μV/mm²')
         
         if (window_idx in stc_dict_VS and len(stc_dict_VS[window_idx]) > 0 and
@@ -138,41 +143,36 @@ def analyze_roi_for_subject(subject, stc_dict_VS, stc_dict_LD, significant_masks
             diff_stc.data = stc_dict_VS[window_idx][0].data - stc_dict_LD[window_idx][0].data
             roi_data_diff = extract_roi_data(diff_stc, mask, labels, scaling_factor=scaling_factor)
             roi_results[window_idx]['VS-LD'] = roi_data_diff
-            csv_file = op.join(subject_dir, f"{subject}_{window_idx}_VS-LD_roi.csv")
+            csv_file = op.join(subject_dir, f"{subject}_{window_idx}_{suffix}_VS-LD_roi.csv")
             save_roi_data_to_csv(roi_data_diff, csv_file, 'VS-LD', window_idx, scaling_type='μV/mm²')
     
     return roi_results
 
 if __name__ == "__main__":
-    # Define time windows
-    time_windows = [[-1.25, -1], [-1, -0.75], [-0.75, -0.5], [-0.5, -0.25], [-0.25, 0], [0, 0.25], [0.25, 0.5]]
-    
-    # Loop through all subjects
+  # Loop through all subjects
     for subject in subjects:
-        print(f"\nProcessing subject: {subject}")
-        
-        # Define subject-specific paths
-        source_estimates_dir = op.join("source_estimates", subject)
-        statistical_results_dir = op.join("statistical_results", subject)
-        output_dir = op.join(output_base_dir, subject)
-        
+        print(f"\nProcessing subject: {subject}")   
+        output_dir = op.join(output_base_dir, subject)   
+        statistical_results_dir = op.join(statistics_base_dir, subject)
         # Load significant masks
         significant_masks = {}
         for window_idx in [f'win_{i}' for i in range(len(time_windows))]:
-            results_file = op.join(statistical_results_dir, f"cluster_results_{window_idx}.npy")
+            results_file = op.join(statistical_results_dir, f"cluster_results_{window_idx}_{suffix}.npy")
+            print(f"Loading results from {results_file}")
             if op.exists(results_file):
                 results = np.load(results_file, allow_pickle=True).item()
+                print(f"Loading results from {results_file}")
+                # Convert significant_mask to a NumPy arra
                 significant_masks[window_idx] = results['significant_mask']
-        
+
         # Load source estimates for VS and LD conditions
         stc_dict_VS = {}
         stc_dict_LD = {}
         
         for window_idx in [f'win_{i}' for i in range(len(time_windows))]:
-            stc_dict_VS[window_idx] = [mne.read_source_estimate(op.join(source_estimates_dir, f"stc_VS_{window_idx}_epoch{i}.stc")) for i in range(10)]
-            stc_dict_LD[window_idx] = [mne.read_source_estimate(op.join(source_estimates_dir, f"stc_LD_{window_idx}_epoch{i}.stc")) for i in range(10)]
-        
+                stc_dict_VS[window_idx] = [mne.read_source_estimate(op.join(source_estimates_dir_base,subject, f"stc_VS_{window_idx}_epoch{i}_{suffix}.h5")) for i in range(10)]
+                stc_dict_LD[window_idx] = [mne.read_source_estimate(op.join(source_estimates_dir_base,subject, f"stc_LD_{window_idx}_epoch{i}_{suffix}.h5")) for i in range(10)]   
         # Perform ROI analysis
-        roi_results = analyze_roi_for_subject(subject, stc_dict_VS, stc_dict_LD, significant_masks, time_windows, output_dir)
+        roi_results = analyze_roi_for_subject(subject, stc_dict_VS, stc_dict_LD, significant_masks)
         
         print(f"Finished processing subject: {subject}")
