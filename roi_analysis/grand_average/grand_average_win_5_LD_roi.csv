@@ -3,7 +3,7 @@ bankssts-lh,0.0,0.0,0.0,0.0,0,3
 bankssts-rh,0.0,0.0,0.0,0.0,0,1
 caudalanteriorcingulate-lh,0.0,0.0,0.0,0.0,0,3
 caudalmiddlefrontal-lh,0.0,0.0,0.0,0.0,0,4
-caudalmiddlefrontal-rh,0.0,0.0,0.0,0.0,0,4
+caudalmiddlefrontal-rh,0.003126322779439249,0.28287421640604316,0.1097240187099668,0.568464798428839,2,4
 cuneus-lh,0.0,0.0,0.0,0.0,0,5
 cuneus-rh,0.0,0.0,0.0,0.0,0,3
 entorhinal-lh,0.0,0.0,0.0,0.0,0,1
@@ -42,7 +42,7 @@ parstriangularis-lh,0.0,0.0,0.0,0.0,0,4
 parstriangularis-rh,0.0,0.0,0.0,0.0,0,5
 pericalcarine-lh,0.0,0.0,0.0,0.0,0,1
 postcentral-lh,0.0,0.0,0.0,0.0,0,17
-postcentral-rh,0.0,0.0,0.0,0.0,0,12
+postcentral-rh,0.007000119468208502,0.40700335292915063,0.18460408415700486,0.8256579214112576,2,12
 posteriorcingulate-lh,0.0,0.0,0.0,0.0,0,8
 posteriorcingulate-rh,0.0,0.0,0.0,0.0,0,5
 precentral-lh,0.0,0.0,0.0,0.0,0,15
@@ -54,12 +54,12 @@ rostralmiddlefrontal-lh,0.0,0.0,0.0,0.0,0,10
 rostralmiddlefrontal-rh,0.0,0.0,0.0,0.0,0,12
 superiorfrontal-lh,0.0,0.0,0.0,0.0,0,19
 superiorfrontal-rh,0.0,0.0,0.0,0.0,0,16
-superiorparietal-lh,0.0,0.0,0.0,0.0,0,14
+superiorparietal-lh,-0.0003250771112208869,0.20664125964275848,0.08513030469796139,0.4249657676177413,5,14
 superiorparietal-rh,0.0,0.0,0.0,0.0,0,16
 superiortemporal-lh,0.0,0.0,0.0,0.0,0,10
 superiortemporal-rh,0.0,0.0,0.0,0.0,0,12
 supramarginal-lh,0.0,0.0,0.0,0.0,0,10
-supramarginal-rh,0.0,0.0,0.0,0.0,0,15
+supramarginal-rh,0.014331132224103649,0.3709483235636674,0.15726773847111747,0.0,1,15
 temporalpole-lh,0.0,0.0,0.0,0.0,0,2
 temporalpole-rh,0.0,0.0,0.0,0.0,0,1
 transversetemporal-lh,0.0,0.0,0.0,0.0,0,1

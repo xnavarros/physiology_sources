@@ -37,7 +37,7 @@ def run_statistics(stc_dict_VS, stc_dict_LD, fwd, time_windows, n_permutations=n
         X = [VS_data, LD_data]
         t_obs, clusters, cluster_p_values, H0 = spatio_temporal_cluster_test(
             X, adjacency=adjacency_spatial, n_jobs=None,
-            n_permutations=n_permutations, threshold=threshold, out_type='mask'
+            n_permutations=n_permutations, threshold=dict(start=0, step=0.2), out_type='mask'
         )
         
         # Create a mask for significant clusters

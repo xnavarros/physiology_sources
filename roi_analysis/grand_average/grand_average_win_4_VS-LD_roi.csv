@@ -22,7 +22,7 @@ isthmuscingulate-lh,0.0,0.0,0.0,0.0,0,5
 isthmuscingulate-rh,0.0,0.0,0.0,0.0,0,5
 lateraloccipital-lh,0.0,0.0,0.0,0.0,0,10
 lateraloccipital-rh,0.0,0.0,0.0,0.0,0,9
-lateralorbitofrontal-lh,0.0,0.0,0.0,0.0,0,4
+lateralorbitofrontal-lh,0.0075583607504902135,0.4419771379135906,0.20724067352061074,0.0,1,4
 lateralorbitofrontal-rh,0.0,0.0,0.0,0.0,0,6
 lingual-lh,0.0,0.0,0.0,0.0,0,3
 lingual-rh,0.0,0.0,0.0,0.0,0,2
@@ -34,11 +34,11 @@ paracentral-lh,0.0,0.0,0.0,0.0,0,1
 paracentral-rh,0.0,0.0,0.0,0.0,0,9
 parahippocampal-lh,0.0,0.0,0.0,0.0,0,5
 parahippocampal-rh,0.0,0.0,0.0,0.0,0,3
-parsopercularis-lh,0.0,0.0,0.0,0.0,0,5
+parsopercularis-lh,0.006744998760019368,0.34176565389930147,0.1463140043438927,0.6919760311924587,3,5
 parsopercularis-rh,0.0,0.0,0.0,0.0,0,4
 parsorbitalis-lh,0.0,0.0,0.0,0.0,0,1
 parsorbitalis-rh,0.0,0.0,0.0,0.0,0,2
-parstriangularis-lh,0.0,0.0,0.0,0.0,0,4
+parstriangularis-lh,-0.001236518586683866,0.3843289249899448,0.1801038027293254,0.7684687211424857,4,4
 parstriangularis-rh,0.0,0.0,0.0,0.0,0,5
 pericalcarine-lh,0.0,0.0,0.0,0.0,0,1
 postcentral-lh,0.0,0.0,0.0,0.0,0,17
@@ -57,7 +57,7 @@ superiorfrontal-rh,0.0,0.0,0.0,0.0,0,16
 superiorparietal-lh,0.0,0.0,0.0,0.0,0,14
 superiorparietal-rh,0.0,0.0,0.0,0.0,0,16
 superiortemporal-lh,0.0,0.0,0.0,0.0,0,10
-superiortemporal-rh,0.0,0.0,0.0,0.0,0,12
+superiortemporal-rh,-0.010590821607487274,0.3010327069729368,0.1482085803764085,0.0,1,12
 supramarginal-lh,0.0,0.0,0.0,0.0,0,10
 supramarginal-rh,0.0,0.0,0.0,0.0,0,15
 temporalpole-lh,0.0,0.0,0.0,0.0,0,2

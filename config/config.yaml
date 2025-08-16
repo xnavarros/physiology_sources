@@ -18,8 +18,8 @@ paths:
   brain_plots_dir: "figures/brain_plots"
 
 params:
-  freq1: 8
-  freq2: 13
+  freq1: 13
+  freq2: 20
   tmin: -1.5
   tmax: 0.5
   baseline_intervals: [-1.5, -1.25]
@@ -38,6 +38,6 @@ params:
 
 stats:
   n_permutations: 500
-  threshold: 2.0
+  threshold: 1.0
   n_epochs: 10
   significance_level: 0.05

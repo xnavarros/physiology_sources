@@ -5,6 +5,23 @@ import os.path as op
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import yaml
+
+def load_config(config_path="config/config.yaml"):
+    with open(config_path, 'r') as f:
+        return yaml.safe_load(f)
+
+# Load config
+config = load_config()
+subjects = config['subjects']
+base_data_dir = config['paths']['base_data_dir']
+output_base_dir = config['paths']['brain_plots_dir']
+time_windows = config['params']['time_intervals']
+source_estimates_dir_base = config['paths']['source_estimates_dir']
+statistical_results_dir_base = config['paths']['statistics_dir']
+suffix = str(config['params']['freq1']) + "_" + str(config['params']['freq2'])
+
+
 
 # Define base directory for grand average ROI analysis results
 grand_average_dir = op.join("roi_analysis", "grand_average")
@@ -14,12 +31,10 @@ output_figures_dir = op.join("roi_figures", "grand_average")
 if not op.exists(output_figures_dir):
     os.makedirs(output_figures_dir)
 
-# Define time windows
-time_windows = [[-1.25, -1],[-1, -0.75], [-0.75, -0.5], [-0.5, -0.25], [-0.25, 0], [0, 0.25], [0.25, 0.5]]
 
 def load_roi_data(window_idx, condition):
     """Load grand average ROI data from CSV file."""
-    csv_file = op.join(grand_average_dir, f"grand_average_{window_idx}_{condition}_roi.csv")
+    csv_file = op.join(grand_average_dir, f"grand_average_{window_idx}_{condition}_{suffix}_roi.csv")
     if op.exists(csv_file):
         return pd.read_csv(csv_file)
     return None
@@ -52,11 +67,11 @@ def plot_metric(top_rois, window_idx, condition, metric, output_dir):
     ax.set_xticklabels(top_rois['ROI'], rotation=45, ha='right')
     
     # Add title
-    plt.title(f"Top 5 ROIs - {condition} - Window {window_idx} - {metric}")
+    plt.title(f"Top 5 ROIs - {condition} - Window {window_idx} - {metric} - Freq {suffix}")
     fig.tight_layout()
     
     # Save the figure as a PDF
-    pdf_file = op.join(output_dir, f"top_rois_{condition}_{window_idx}_{metric.lower().replace(' ', '_')}.pdf")
+    pdf_file = op.join(output_dir, f"top_rois_{condition}_{window_idx}_{suffix}_{metric.lower().replace(' ', '_')}.pdf")
     plt.savefig(pdf_file, format='pdf', bbox_inches='tight')
     plt.close()
 

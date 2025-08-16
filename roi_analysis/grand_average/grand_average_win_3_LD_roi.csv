@@ -10,11 +10,11 @@ entorhinal-lh,0.0,0.0,0.0,0.0,0,1
 entorhinal-rh,0.0,0.0,0.0,0.0,0,2
 frontalpole-lh,0.0,0.0,0.0,0.0,0,2
 frontalpole-rh,0.0,0.0,0.0,0.0,0,1
-fusiform-lh,0.0,0.0,0.0,0.0,0,8
+fusiform-lh,-0.00855559037143686,0.31744426346826315,0.13588315549896787,0.6411262363401307,6,8
 fusiform-rh,0.0,0.0,0.0,0.0,0,10
 inferiorparietal-lh,0.0,0.0,0.0,0.0,0,14
 inferiorparietal-rh,0.0,0.0,0.0,0.0,0,15
-inferiortemporal-lh,0.0,0.0,0.0,0.0,0,5
+inferiortemporal-lh,-0.0017352024367514542,0.2878309071077658,0.10217491875998556,0.6102827889354095,4,5
 inferiortemporal-rh,0.0,0.0,0.0,0.0,0,4
 insula-lh,0.0,0.0,0.0,0.0,0,12
 insula-rh,0.0,0.0,0.0,0.0,0,3
@@ -32,7 +32,7 @@ middletemporal-lh,0.0,0.0,0.0,0.0,0,4
 middletemporal-rh,0.0,0.0,0.0,0.0,0,8
 paracentral-lh,0.0,0.0,0.0,0.0,0,1
 paracentral-rh,0.0,0.0,0.0,0.0,0,9
-parahippocampal-lh,0.0,0.0,0.0,0.0,0,5
+parahippocampal-lh,0.0036865254406064584,0.2770077197155248,0.09966162770037637,0.0,1,5
 parahippocampal-rh,0.0,0.0,0.0,0.0,0,3
 parsopercularis-lh,0.0,0.0,0.0,0.0,0,5
 parsopercularis-rh,0.0,0.0,0.0,0.0,0,4
@@ -45,7 +45,7 @@ postcentral-lh,0.0,0.0,0.0,0.0,0,17
 postcentral-rh,0.0,0.0,0.0,0.0,0,12
 posteriorcingulate-lh,0.0,0.0,0.0,0.0,0,8
 posteriorcingulate-rh,0.0,0.0,0.0,0.0,0,5
-precentral-lh,0.0,0.0,0.0,0.0,0,15
+precentral-lh,-0.006705570577554593,0.2024353225897566,0.08554237245097336,0.43621312671826984,2,15
 precentral-rh,0.0,0.0,0.0,0.0,0,16
 precuneus-lh,0.0,0.0,0.0,0.0,0,8
 precuneus-rh,0.0,0.0,0.0,0.0,0,7
