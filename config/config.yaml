@@ -1,3 +1,5 @@
+# config/config.yaml
+
 subjects:
   - BJ25
   - JS08
@@ -12,17 +14,39 @@ subjects:
 
 paths:
   base_data_dir: "data/raw"
+  preprocessed_dir: "data/preprocessed" # <-- ADDED: Output for the new preprocessing script
   source_estimates_dir: "data/source_estimates"
   statistics_dir: "data/statistical_results"
   roi_dir: "data/roi_analysis"
   brain_plots_dir: "figures/brain_plots"
 
-params:
-  freq1: 13
-  freq2: 20
+# --- NEW SECTION for the preprocessing_pipeline.py script ---
+preprocessing_params:
+  apply_notch: false
+  apply_ica: true
+  n_ica_components: 20 # Can be an int (number) or float (variance explained, e.g., 0.99)
   tmin: -1.5
   tmax: 0.5
-  baseline_intervals: [-1.5, -1.25]
+  apply_baseline_after_ica: true
+  baseline_timing: [-1.5, -1.25] # The timing to use if apply_baseline_after_ica is true
+
+# --- NEW SECTION for AutoReject parameters ---
+autoreject_params:
+  # n_interpolate is an array of values to test for the number of channels to interpolate.
+  # np.arange(1, 10) would test interpolating 1 to 9 channels.
+  # A simpler [1, 2, 4, 8] is often sufficient.
+  n_interpolate: [1, 2, 3]
+  
+  # The consensus percentage determines how many cross-validation folds must agree
+  # on a rejection threshold. 1.0 is the most conservative.
+  consensus: [0.9, 0.8, 0.7]
+
+# --- Original params, now for post-preprocessing steps (e.g., source estimation) ---
+params:
+  # Frequency band for filtering AFTER preprocessing, before source estimation
+  freq1: 13
+  freq2: 20
+  # Time windows for source estimation
   time_intervals:
     - [-1.25, -1]
     - [-1, -0.75]
@@ -31,11 +55,10 @@ params:
     - [-0.25, 0]
     - [0, 0.25]
     - [0.25, 0.5]
+  # Custom flag, likely for source estimation script
   apply_td_baseline: true
-  apply_notch: false
-  apply_ica: true
-  n_ica_components: 20
 
+# --- Parameters for statistical analysis ---
 stats:
   n_permutations: 500
   threshold: 1.0

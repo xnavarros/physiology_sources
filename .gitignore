@@ -1,8 +1,13 @@
 # Ignore data folder
 data/
 
+# Ignore figures folder
+figures/
+
 # VS Code settings
 .vscode/
+
+.DS_Store
 
 # Python cache
 __pycache__/
