@@ -16,6 +16,7 @@ paths:
   base_data_dir: "data/raw"
   preprocessed_data_dir: "data/preprocessed"
   preprocessed_slow_potentials_dir: "data/preprocessed_slow_potentials"
+  preprocessed_tfr_dir: "data/preprocessed_TFR" # Add this line
   results_dir: "results" # General output directory for analysis scripts
   source_estimates_dir: "data/source_estimates"
   statistics_dir: "data/statistical_results"
@@ -35,9 +36,9 @@ preprocessing_params:
   # Parameters for slow potentials pipeline
   l_freq_slow: 0.1
   h_freq_slow: 40.0
-  tmin_slow: -2.5
+  tmin_slow: -2
   tmax_slow: 0.5
-  baseline_timing_slow: [-2.5, -2.0]
+  baseline_timing_slow: [-2, -1.5]
   # This is the marker used in the slow potential script
   inspiration_marker: 'Response/R128'
 

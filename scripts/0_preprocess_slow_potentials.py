@@ -164,49 +164,65 @@ def run_preprocessing_pipeline(raw_VS, raw_LD, events_VS, events_LD, event_id, p
 if __name__ == "__main__":
     config = load_config()
     subjects = config['subjects']
-    base_data_dir = config['paths']['base_data_dir']
-    # --- SAVE TO A NEW DIRECTORY ---
-    output_base_dir = config['paths']['preprocessed_slow_potentials_dir'] 
+    # --- FIX: Load the correct parameter dictionary ---
+    # The preprocessing script should use 'preprocessing_params' from the config file.
     params = config['preprocessing_params']
     ar_params = config['autoreject_params']
 
-    log_data = []
-    log_fname = op.join(output_base_dir, 'preprocessing_log_slow_potentials.csv')
+    # Add path definitions to the params dictionary for easy access
+    params.update(config['paths'])
+    # --- END FIX ---
+
+    # --- NEW: Override epoching and baseline parameters ---
+    print("--- OVERRIDING EPOCH AND BASELINE PARAMETERS ---")
+    params['tmin_slow'] = -2.0
+    params['tmax_slow'] = 0.5
+    params['baseline_timing_slow'] = (-2.0, -1.5)
+
+    print(f"  - New epoch time: {params['tmin_slow']}s to {params['tmax_slow']}s")
+    print(f"  - New baseline: {params['baseline_timing_slow'][0]}s to {params['baseline_timing_slow'][1]}s")
+    # --- END NEW ---
+
+    # Create output directories if they don't exist
+    output_dir = params['preprocessed_slow_potentials_dir']
+    if not op.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    # Initialize a list to hold all log information
+    all_logs = []
 
     for subject in subjects:
-        print(f"\n==========================================")
+        print("\n" + "="*50)
         print(f"Processing subject: {subject}")
-        print(f"==========================================")
-        data_fname = op.join(base_data_dir, subject, f"{subject}_CONTINU_64Ch_A2Ref")
-        output_dir = op.join(output_base_dir, subject)
-        if not op.exists(output_dir):
-            os.makedirs(output_dir)
-            
-        raw_VS, raw_LD, events_VS, events_LD, event_id = load_and_prepare_raw(data_fname, params)
+        print("="*50)
         
-        if raw_VS is not None:
+        # Define file paths
+        data_fname = op.join(params['base_data_dir'], subject, f"{subject}_CONTINU_64Ch_A2Ref")
+        
+        try:
+            # Load and prepare raw data
+            raw_VS, raw_LD, events_VS, events_LD, event_id = load_and_prepare_raw(data_fname, params)
+            
+            # Run the main preprocessing pipeline
             epochs_VS_clean, epochs_LD_clean, log_info = run_preprocessing_pipeline(
                 raw_VS, raw_LD, events_VS, events_LD, event_id, params, ar_params
             )
+            
+            # Save the cleaned epochs
             epochs_VS_clean.save(op.join(output_dir, f"{subject}_VS-slow-epo.fif"), overwrite=True)
             epochs_LD_clean.save(op.join(output_dir, f"{subject}_LD-slow-epo.fif"), overwrite=True)
             
-            subject_log = {
-                'subject': subject,
-                'interpolated_channels': log_info['interpolated_channels'],
-                'rejected_ica_components': log_info['rejected_ica_components'],
-                'initial_epochs_VS': log_info['initial_epochs_VS'],
-                'rejected_epochs_VS': log_info['rejected_epochs_autoreject_VS'],
-                'final_epochs_VS': log_info['final_epochs_VS'],
-                'initial_epochs_LD': log_info['initial_epochs_LD'],
-                'rejected_epochs_LD': log_info['rejected_epochs_autoreject_LD'],
-                'final_epochs_LD': log_info['final_epochs_LD'],
-            }
-            log_data.append(subject_log)
+            # Add subject info to the log and append
+            log_info['subject'] = subject
+            all_logs.append(log_info)
+
+        except Exception as e:
+            print(f"!!! FAILED to process subject {subject}. Error: {e}")
+            # Log the failure
+            all_logs.append({'subject': subject, 'status': 'FAILED', 'error': str(e)})
+
+    # Save the logs to a CSV file
+    log_df = pd.DataFrame(all_logs)
+    log_df.to_csv(op.join(output_dir, 'preprocessing_log_slow_potentials.csv'), index=False)
     
-    if log_data:
-        log_df = pd.DataFrame(log_data)
-        log_df.to_csv(log_fname, index=False)
-        print(f"\n==========================================")
-        print(f"Slow potential preprocessing complete. Log file saved to: {log_fname}")
-        print(f"==========================================")
+    print("\n--- Preprocessing complete for all subjects. ---")

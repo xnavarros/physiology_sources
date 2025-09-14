@@ -4,6 +4,7 @@ import mne
 import numpy as np
 import yaml
 import matplotlib.pyplot as plt
+from mne import Report
 
 def load_config(config_path="config/config.yaml"):
     """Loads the configuration file."""
@@ -14,9 +15,13 @@ if __name__ == "__main__":
     # --- 1. CONFIGURATION AND SETUP ---
     config = load_config()
     subjects = config['subjects']
+    # --- NEW: Load preprocessing parameters from config ---
+    params = config['preprocessing_params']
+    # --- END NEW ---
     
     input_dir = config['paths']['preprocessed_slow_potentials_dir']
-    output_dir = op.join(config['paths']['results_dir'], 'readiness_potential')
+    # --- MODIFIED: Change output directory name ---
+    output_dir = op.join(config['paths']['results_dir'], 'erp_analysis')
     if not op.exists(output_dir):
         os.makedirs(output_dir)
 
@@ -25,10 +30,20 @@ if __name__ == "__main__":
     if not op.exists(erp_output_dir):
         os.makedirs(erp_output_dir)
 
+    # --- NEW: Initialize HTML Report ---
+    report = Report(title='Readiness Potential Analysis Report: VS vs. LD', verbose=False)
+
     # Analysis parameters
     channel_of_interest = 'Cz' # For stats and grand average plot
     channels_to_plot = ['Fz', 'Cz', 'F3', 'F4', 'C3', 'C4'] # For subject-level plots
     topo_window = (-0.5, 0.0)
+    # --- NEW: Define analysis windows early so they can be used for plotting ---
+    time_windows = {
+        "early": (-1.5, -1.0),
+        "mid": (-1.0, -0.5),
+        "late": (-0.5, 0.0),
+        "post": (0.0, 0.5)
+    }
 
     all_evoked_vs = []
     all_evoked_ld = []
@@ -42,10 +57,15 @@ if __name__ == "__main__":
             vs_epochs_fname = op.join(input_dir, subject, f"{subject}_VS-slow-epo.fif")
             ld_epochs_fname = op.join(input_dir, subject, f"{subject}_LD-slow-epo.fif")
             
-            # The data is already cleaned by AutoReject in the preprocessing script,
-            # so we can load it directly without further rejection.
             epochs_vs = mne.read_epochs(vs_epochs_fname, preload=True, verbose=False)
             epochs_ld = mne.read_epochs(ld_epochs_fname, preload=True, verbose=False)
+
+            # --- MODIFIED: Apply baseline correction from config file ---
+            baseline_window = tuple(params['baseline_timing_slow'])
+            print(f"      Applying baseline correction from config: {baseline_window}s")
+            epochs_vs.apply_baseline(baseline=baseline_window)
+            epochs_ld.apply_baseline(baseline=baseline_window)
+            # --- END MODIFIED ---
 
             # Get epoch counts for plotting
             n_epochs_vs = len(epochs_vs)
@@ -73,6 +93,7 @@ if __name__ == "__main__":
             fig.tight_layout(rect=[0, 0.03, 1, 0.95])
             subj_fig_fname = op.join(erp_output_dir, f"{subject}_Fz_Cz_Pz_waveforms.png")
             fig.savefig(subj_fig_fname)
+            report.add_figure(fig=fig, title='ERP Waveforms (Fz, Cz, Pz)', section=f'Subject: {subject}', tags=('erp', 'waveform'))
             plt.close(fig)
 
             # --- MODIFIED: Create a single, combined butterfly plot for EEG and Respiratory signals ---
@@ -126,6 +147,7 @@ if __name__ == "__main__":
             fig_combo.tight_layout(rect=[0, 0.03, 1, 0.95])
             subj_combo_fname = op.join(erp_output_dir, f"{subject}_combined_butterfly_plot.png")
             fig_combo.savefig(subj_combo_fname)
+            report.add_figure(fig=fig_combo, title='Combined Butterfly Plot', section=f'Subject: {subject}', tags=('butterfly', 'respiration'))
             plt.close(fig_combo)
             # --- END of combined plotting section ---
 
@@ -138,6 +160,7 @@ if __name__ == "__main__":
             )
             subj_joint_fname = op.join(erp_output_dir, f"{subject}_joint_plot_diff.png")
             fig.savefig(subj_joint_fname)
+            report.add_figure(fig=fig, title='Joint Plot (Difference)', section=f'Subject: {subject}', tags=('joint', 'difference'))
             plt.close(fig)
             # --- END NEW ---
 
@@ -169,6 +192,7 @@ if __name__ == "__main__":
                 fig_debit.tight_layout(rect=[0, 0.03, 1, 0.95])
                 subj_debit_fname = op.join(erp_output_dir, f"{subject}_debit_plot.png")
                 fig_debit.savefig(subj_debit_fname)
+                report.add_figure(fig=fig_debit, title='Debit Signal', section=f'Subject: {subject}', tags=('respiration', 'qc'))
                 plt.close(fig_debit)
 
                 # --- Plot 2: Pression Signal ---
@@ -197,11 +221,11 @@ if __name__ == "__main__":
                 fig_press.tight_layout(rect=[0, 0.03, 1, 0.95])
                 subj_press_fname = op.join(erp_output_dir, f"{subject}_pression_plot.png")
                 fig_press.savefig(subj_press_fname)
+                report.add_figure(fig=fig_press, title='Pression Signal', section=f'Subject: {subject}', tags=('respiration', 'qc'))
                 plt.close(fig_press)
 
             except Exception as e:
                 print(f"    - WARNING: Could not plot Debit/Pression for subject {subject}. Error: {e}")
-            # --- END MODIFIED ---
 
         except FileNotFoundError:
             print(f"    - WARNING: Cleaned slow-potential files not found for subject {subject}. Skipping.")
@@ -215,6 +239,7 @@ if __name__ == "__main__":
     print("\n--- Computing and Plotting Grand Averages ---")
     grand_avg_vs = mne.grand_average(all_evoked_vs)
     grand_avg_ld = mne.grand_average(all_evoked_ld)
+    diff_evoked = mne.combine_evoked([grand_avg_vs, grand_avg_ld], weights=[1, -1])
     
     # --- MODIFIED: Create a multi-channel grand average ERP plot ---
     ga_channels_to_plot = ['Fz', 'Cz', 'Pz']
@@ -237,6 +262,7 @@ if __name__ == "__main__":
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     fig_fname = op.join(output_dir, "grand_average_bp_waveforms_Fz_Cz_Pz.png")
     fig.savefig(fig_fname)
+    report.add_figure(fig=fig, title='GA Waveforms (Fz, Cz, Pz)', section='Grand Average Results', tags=('erp', 'waveform'))
     plt.close(fig)
     print(f"  - Saved grand average Fz/Cz/Pz waveform plot.")
 
@@ -257,6 +283,7 @@ if __name__ == "__main__":
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     fig_fname = op.join(output_dir, "grand_average_bp_waveforms_Parietal.png")
     fig.savefig(fig_fname)
+    report.add_figure(fig=fig, title='GA Waveforms (Parietal)', section='Grand Average Results', tags=('erp', 'waveform'))
     plt.close(fig)
     print(f"  - Saved grand average Parietal waveform plot.")
     # --- END NEW ---
@@ -278,6 +305,7 @@ if __name__ == "__main__":
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     fig_fname = op.join(output_dir, "grand_average_bp_waveforms_Frontal.png")
     fig.savefig(fig_fname)
+    report.add_figure(fig=fig, title='GA Waveforms (Frontal)', section='Grand Average Results', tags=('erp', 'waveform'))
     plt.close(fig)
     print(f"  - Saved grand average Frontal waveform plot.")
 
@@ -298,28 +326,40 @@ if __name__ == "__main__":
     fig.tight_layout(rect=[0, 0.03, 1, 0.95])
     fig_fname = op.join(output_dir, "grand_average_bp_waveforms_Central.png")
     fig.savefig(fig_fname)
+    report.add_figure(fig=fig, title='GA Waveforms (Central)', section='Grand Average Results', tags=('erp', 'waveform'))
     plt.close(fig)
     print(f"  - Saved grand average Central waveform plot.")
     # --- END NEW ---
 
     # --- MODIFIED: Improve topography plot and add joint plot ---
-    diff_evoked = mne.combine_evoked([grand_avg_vs, grand_avg_ld], weights=[1, -1])
-    
-    # Improved Topography Plot (as before)
-    fig = diff_evoked.plot_topomap(
-        times=topo_window, 
-        average=topo_window[1] - topo_window[0],
-        show=False
-    )
-    fig.set_size_inches(8, 6)
-    fig.suptitle(f"Grand Average Topography of VS-LD Difference ({topo_window[0]}s to {topo_window[1]}s)", fontsize=14, y=0.98)
-    fig_fname = op.join(output_dir, "grand_average_bp_topography_diff.png")
-    fig.savefig(fig_fname)
-    plt.close(fig)
-    print(f"  - Saved grand average topography plot.")
+    # This is now a multi-panel plot for each analysis window
+    print("\n--- Plotting Grand Average Topographies for Analysis Windows ---")
+    fig, axes = plt.subplots(1, len(time_windows), figsize=(5 * len(time_windows), 5), sharex=True, sharey=True)
+    if len(time_windows) == 1: # Ensure axes is always a list
+        axes = [axes]
+    fig.suptitle("Grand Average Topography of VS-LD Difference", fontsize=16)
 
-    # --- NEW: Joint Plot to show time-course of the difference ---
-    # This plot shows the difference wave (like a GFP) and topomaps at specific time points.
+    for ax, (t_label, (tmin, tmax)) in zip(axes, time_windows.items()):
+        diff_evoked.plot_topomap(
+            times=(tmin + tmax) / 2, 
+            average=tmax - tmin,
+            axes=ax,
+            show=False,
+            colorbar=False # Add a single colorbar at the end
+        )
+        ax.set_title(f"{t_label.title()} Window\n({tmin}s to {tmax}s)")
+
+    # Add a single colorbar to the figure
+    sm = plt.cm.ScalarMappable(cmap='RdBu_r', norm=plt.Normalize(vmin=diff_evoked.data.min(), vmax=diff_evoked.data.max()))
+    cbar = fig.colorbar(sm, ax=axes, shrink=0.6, orientation='vertical', label='Amplitude (µV)')
+    
+    fig_fname = op.join(output_dir, "grand_average_bp_topography_diff_windows.png")
+    fig.savefig(fig_fname)
+    report.add_figure(fig=fig, title='GA Topography (Difference per Window)', section='Grand Average Results', tags=('topomap', 'difference'))
+    plt.close(fig)
+    print(f"  - Saved grand average multi-window topography plot.")
+    
+    # Joint Plot (as before)
     fig = diff_evoked.plot_joint(
         title="Grand Average Difference Wave (VS - LD)",
         times=[-0.8, -0.5, -0.2, 0.0], # Specify time points for topomaps
@@ -327,45 +367,325 @@ if __name__ == "__main__":
     )
     fig_fname = op.join(output_dir, "grand_average_bp_joint_plot_diff.png")
     fig.savefig(fig_fname)
+    report.add_figure(fig=fig, title='GA Joint Plot (Difference)', section='Grand Average Results', tags=('joint', 'difference'))
     plt.close(fig)
     print(f"  - Saved grand average joint plot of the difference.")
-    # --- END NEW ---
 
-    # --- 4. STATISTICAL ANALYSIS ---
-    print(f"--- Running Cluster Permutation Test on Channel '{channel_of_interest}' ---")
+    # --- 4. STATISTICAL ANALYSIS (RESTRUCTURED) ---
+    print("\n" + "="*80)
+    print("--- Running Spatio-Temporal Cluster Analysis ---")
+    print("="*80)
+
+    # --- NEW: Define a corrected alpha for multiple comparisons across windows ---
+    n_windows = len(time_windows)
+    alpha = 0.05
+    corrected_alpha = alpha / n_windows
+    print(f"--- Using Bonferroni-corrected alpha of {corrected_alpha:.4f} for {n_windows} time windows ---")
+
+    # --- NEW: Define channel regions for reporting ---
+    regions = {
+        "Frontal": ['Fp1', 'Fp2', 'F7', 'F3', 'Fz', 'F4', 'F8', 'FC5', 'FC1', 'FC2', 'FC6'],
+        "Central": ['T7', 'C3', 'Cz', 'C4', 'T8', 'CP5', 'CP1', 'CP2', 'CP6'],
+        "Parietal": ['P7', 'P3', 'Pz', 'P4', 'P8', 'PO9', 'O1', 'Oz', 'O2', 'PO10']
+    }
+
+    # Get channel adjacency for cluster tests
+    eeg_channels = mne.pick_types(grand_avg_vs.info, eeg=True)
+    adjacency, ch_names = mne.channels.find_ch_adjacency(grand_avg_vs.info, ch_type='eeg')
     
-    X_vs = np.array([evk.copy().pick(channel_of_interest).get_data() for evk in all_evoked_vs]).squeeze()
-    X_ld = np.array([evk.copy().pick(channel_of_interest).get_data() for evk in all_evoked_ld]).squeeze()
-    X_diff = X_vs - X_ld
+    group_results = {t_label: [] for t_label in time_windows}
+    # --- MODIFIED: New data structure for detailed subject results ---
+    subject_specific_results = {subject: {t_label: [] for t_label in time_windows} for subject in subjects}
 
-    t_obs, clusters, cluster_p_values, H0 = mne.stats.permutation_cluster_1samp_test(
-        X_diff, n_permutations=1024, threshold=None, n_jobs=-1
-    )
+    # Helper function to find cluster locations
+    def get_cluster_regions(cluster_indices, ch_names, regions_dict):
+        cluster_ch_names = [ch_names[i] for i in cluster_indices]
+        found_regions = set()
+        for region_name, region_channels in regions_dict.items():
+            if any(ch in cluster_ch_names for ch in region_channels):
+                found_regions.add(region_name)
+        return sorted(list(found_regions))
+
+    # --- NEW: Helper function to count channels per region in a cluster ---
+    def count_channels_in_regions(cluster_ch_names, regions_dict):
+        region_counts = {region_name: 0 for region_name in regions_dict}
+        for ch_name in cluster_ch_names:
+            for region_name, region_channels in regions_dict.items():
+                if ch_name in region_channels:
+                    region_counts[region_name] += 1
+        return region_counts
+
+    # --- NEW: Helper function to classify cluster strength ---
+    def get_strength_descriptor(mass, channels, duration):
+        """Provides a qualitative descriptor for a cluster's strength."""
+        # Score based on cluster mass
+        if mass > 1000: mass_score = 3
+        elif mass > 500: mass_score = 2
+        else: mass_score = 1
+        
+        # Score based on spatial spread (number of channels)
+        if channels > 20: space_score = 3
+        elif channels > 10: space_score = 2
+        else: space_score = 1
+            
+        # Score based on temporal duration (ms)
+        if duration > 300: time_score = 3
+        elif duration > 150: time_score = 2
+        else: time_score = 1
+            
+        total_score = mass_score + space_score + time_score
+        
+        if total_score >= 8: return "Very Strong"
+        if total_score >= 6: return "Strong"
+        if total_score >= 4: return "Moderate"
+        return "Weak"
+
+    # --- GROUP-LEVEL ANALYSIS ---
+    print("\n--- Running GROUP-LEVEL Spatio-Temporal Cluster Tests ---")
+    # Prepare data for all subjects (n_subjects, n_channels, n_times)
+    X_vs_all = np.array([evk.copy().pick(ch_names).get_data() for evk in all_evoked_vs])
+    X_ld_all = np.array([evk.copy().pick(ch_names).get_data() for evk in all_evoked_ld])
+    X_diff_all = X_vs_all - X_ld_all
+
+    for t_label, (tmin, tmax) in time_windows.items():
+        print(f"\n--- Testing {t_label.upper()} window ({tmin}s to {tmax}s) at GROUP level ---")
+        
+        # Crop data to the current time window
+        times = grand_avg_vs.times
+        time_mask = (times >= tmin) & (times <= tmax)
+        X_diff_window = X_diff_all[:, :, time_mask]
+        
+        # Transpose for the stats function: (n_subjects, n_times_in_window, n_channels)
+        X = X_diff_window.transpose(0, 2, 1)
+
+        t_obs, clusters, cluster_p, _ = mne.stats.spatio_temporal_cluster_1samp_test(
+            X, adjacency=adjacency, n_permutations=1000, n_jobs=-1
+        )
+        
+        # --- MODIFIED: Use corrected alpha ---
+        significant_clusters_idx = np.where(cluster_p < corrected_alpha)[0]
+        
+        if len(significant_clusters_idx) > 0:
+            print(f"  >>> FOUND {len(significant_clusters_idx)} SIGNIFICANT GROUP CLUSTER(S) in {t_label.upper()} window.")
+            for clu_idx in significant_clusters_idx:
+                ch_inds = clusters[clu_idx][1]
+                cluster_regions = get_cluster_regions(ch_inds, ch_names, regions)
+                group_results[t_label].extend(cluster_regions)
+            group_results[t_label] = sorted(list(set(group_results[t_label]))) # Get unique sorted list
+        else:
+            print(f"  - No significant group clusters found.")
+
+    # --- SUBJECT-LEVEL ANALYSIS ---
+    print("\n--- Running SUBJECT-LEVEL Spatio-Temporal Cluster Tests ---")
+    for t_label, (tmin, tmax) in time_windows.items():
+        print(f"\n--- Testing {t_label.upper()} window ({tmin}s to {tmax}s) for each SUBJECT ---")
+        
+        for i, subject in enumerate(subjects):
+            try:
+                # We need the original epochs for within-subject test
+                vs_epochs_fname = op.join(input_dir, subject, f"{subject}_VS-slow-epo.fif")
+                ld_epochs_fname = op.join(input_dir, subject, f"{subject}_LD-slow-epo.fif")
+                epochs_vs = mne.read_epochs(vs_epochs_fname, preload=True, verbose=False)
+                epochs_ld = mne.read_epochs(ld_epochs_fname, preload=True, verbose=False)
+                
+                # Apply baseline
+                epochs_vs.apply_baseline(baseline=baseline_window)
+                epochs_ld.apply_baseline(baseline=baseline_window)
+
+                # Crop epochs to the time window
+                epochs_vs.crop(tmin, tmax)
+                epochs_ld.crop(tmin, tmax)
+                window_times = epochs_vs.times
+
+                # Prepare data for permutation_cluster_test
+                X_vs_subj = epochs_vs.pick(ch_names).get_data().transpose(0, 2, 1) # (n_epochs, n_times, n_channels)
+                X_ld_subj = epochs_ld.pick(ch_names).get_data().transpose(0, 2, 1)
+                
+                t_obs_subj, clusters_subj, cluster_p_subj, _ = mne.stats.permutation_cluster_test(
+                    [X_vs_subj, X_ld_subj], adjacency=adjacency, n_permutations=1000, n_jobs=-1
+                )
+
+                # --- MODIFIED: Use corrected alpha ---
+                significant_clusters_subj_idx = np.where(cluster_p_subj < corrected_alpha)[0]
+                if len(significant_clusters_subj_idx) > 0:
+                    # --- MODIFIED: Extract detailed info for each significant cluster ---
+                    for clu_idx in significant_clusters_subj_idx:
+                        # Get temporal and spatial extent of the cluster
+                        time_inds, ch_inds = clusters_subj[clu_idx]
+                        
+                        # --- FIX: Calculate cluster mass (sum of t-values) ---
+                        cluster_mass = t_obs_subj[time_inds, ch_inds].sum()
+
+                        # Temporal information
+                        start_time = window_times[time_inds.min()]
+                        end_time = window_times[time_inds.max()]
+                        duration_ms = (end_time - start_time) * 1000
+                        window_duration_ms = (tmax - tmin) * 1000
+                        time_percentage = (duration_ms / window_duration_ms) * 100
+                        
+                        # --- FIX: Correctly identify unique channels ---
+                        unique_ch_inds = np.unique(ch_inds)
+                        cluster_ch_names = [ch_names[i] for i in unique_ch_inds]
+                        num_unique_channels = len(cluster_ch_names)
+                        region_counts = count_channels_in_regions(cluster_ch_names, regions)
+
+                        # --- NEW: Get qualitative strength descriptor ---
+                        strength = get_strength_descriptor(cluster_mass, num_unique_channels, duration_ms)
+
+                        cluster_details = {
+                            "p_value": cluster_p_subj[clu_idx],
+                            "cluster_mass": cluster_mass,
+                            "start_time_s": start_time,
+                            "end_time_s": end_time,
+                            "duration_ms": duration_ms,
+                            "time_percentage": time_percentage,
+                            "strength": strength,
+                            "total_channels": num_unique_channels,
+                            "region_counts": region_counts
+                        }
+                        subject_specific_results[subject][t_label].append(cluster_details)
+
+            except Exception as e:
+                print(f"    - WARNING: Could not process subject {subject} for {t_label} window. Error: {e}")
+
+    # --- 5. FINAL SUMMARY REPORT ---
+    print("\n" + "="*80)
+    print("--- Generating Final HTML Report ---")
+    print("="*80)
+
+    # --- NEW: Build HTML for the analysis description ---
+    desc_html = f"""
+    <h2>Analysis Methods</h2>
+    <h3>Preprocessing</h3>
+    <p>Data was preprocessed using a pipeline defined in the configuration file. Key steps included:
+    <ul>
+        <li>Band-pass filtering from {params['l_freq_slow']} Hz to {params['h_freq_slow']} Hz.</li>
+        <li>Independent Component Analysis (ICA) to identify and remove eye and heart artifacts.</li>
+        <li>Epoching around the sigh onset from {params['tmin_slow']}s to {params['tmax_slow']}s.</li>
+        <li>Automated epoch rejection using the Autoreject algorithm to remove remaining artifacts.</li>
+        <li>Baseline correction applied using the interval: <code>{baseline_window}</code>.</li>
+    </ul>
+    </p>
+    <h3>Statistical Analysis</h3>
+    <p>Spatio-temporal cluster-based permutation tests were used to compare the Voluntary Sigh (VS) and Load (LD) conditions across four distinct time windows. This method corrects for multiple comparisons across time points and channels.</p>
+    <ol>
+        <li><b>Group Level:</b> A one-sample cluster test (<code>spatio_temporal_cluster_1samp_test</code>) was performed on the VS-LD difference waves across all subjects.</li>
+        <li><b>Individual Level:</b> A within-subject paired cluster test (<code>permutation_cluster_test</code>) was performed for each participant, comparing their set of VS trials to their LD trials.</li>
+    </ol>
+    <p>For reporting, significant clusters were localized to one or more of three predefined regions: Frontal, Central, and Parietal.</p>
+    """
+    report.add_html(html=desc_html, title='Analysis Description', section='Methods')
+
+    # Build HTML for the summary tables
+    summary_html = "<h2>Statistical Analysis Summary</h2>"
     
-    significant_clusters = np.where(cluster_p_values < 0.05)[0]
-    print(f"  - Found {len(significant_clusters)} significant clusters.")
+    # Group Results
+    summary_html += "<h3>Group-Level Results</h3><p>Significant differences (p < 0.05) were found in the following time windows:</p><ul>"
+    found_group_sig = False
+    for window, regions_found in group_results.items():
+        if regions_found:
+            summary_html += f"<li><b>{window.upper()}:</b> {', '.join(regions_found)}</li>"
+            found_group_sig = True
+    if not found_group_sig:
+        summary_html += "<li>None</li>"
+    summary_html += "</ul>"
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-    times = grand_avg_vs.times
-    ax.plot(times, X_diff.mean(axis=0), label='VS - LD Difference')
-    ax.axhline(0, color='k', linestyle='--', lw=1)
-    ax.axvline(0, color='r', linestyle='-', lw=1.5)
+    # --- MODIFIED: Reverted Subject Results table to a simpler version ---
+    summary_html += f"""
+    <h3>Subject-Level Results</h3>
+    <p>The following table details the significant spatio-temporal clusters (p < {corrected_alpha:.4f}, Bonferroni-corrected for {n_windows} windows) found for each subject.</p>
+    """
+    # --- NEW: Detailed subject-level results table ---
+    for subject, results_by_window in sorted(subject_specific_results.items()):
+        summary_html += f"<h4>Subject: {subject}</h4>"
+        has_any_sig = any(res for res in results_by_window.values())
+        
+        if not has_any_sig:
+            summary_html += "<p>No significant clusters found in any window.</p>"
+            continue
+
+        summary_html += """
+        <table class="table table-sm table-bordered">
+            <thead class="thead-light">
+                <tr>
+                    <th>Window</th>
+                    <th>p-value</th>
+                    <th>Strength</th>
+                    <th>Cluster Mass</th>
+                    <th>Time Window (s)</th>
+                    <th>Duration (ms)</th>
+                    <th>% of Window</th>
+                    <th># Unique Channels</th>
+                    <th>Channel Distribution (F/C/P)</th>
+                </tr>
+            </thead>
+            <tbody>
+        """
+        for t_label, clusters_list in results_by_window.items():
+            if not clusters_list:
+                continue
+            
+            # Sort clusters by p-value
+            sorted_clusters = sorted(clusters_list, key=lambda x: x['p_value'])
+            
+            for i, cluster in enumerate(sorted_clusters):
+                # Use rowspan for the window label if there are multiple clusters
+                row_start = f'<tr style="background-color: #f8f9fa;">' if i == 0 else '<tr>'
+                window_cell = f'<td rowspan="{len(sorted_clusters)}">{t_label.upper()}</td>' if i == 0 else ''
+                
+                p_val_str = f"{cluster['p_value']:.3f}"
+                strength_str = cluster['strength']
+                mass_str = f"{cluster['cluster_mass']:.1f}"
+                time_win_str = f"[{cluster['start_time_s']:.3f}, {cluster['end_time_s']:.3f}]"
+                duration_str = f"{cluster['duration_ms']:.0f}"
+                time_perc_str = f"{cluster['time_percentage']:.1f}%"
+                rc = cluster['region_counts']
+                dist_str = f"{rc['Frontal']} / {rc['Central']} / {rc['Parietal']}"
+
+                summary_html += f"""
+                    {row_start}
+                        {window_cell}
+                        <td>{p_val_str}</td>
+                        <td>{strength_str}</td>
+                        <td>{mass_str}</td>
+                        <td>{time_win_str}</td>
+                        <td>{duration_str}</td>
+                        <td>{time_perc_str}</td>
+                        <td>{cluster['total_channels']}</td>
+                        <td>{dist_str}</td>
+                    </tr>
+                """
+        summary_html += "</tbody></table>"
+
+    report.add_html(html=summary_html, title='Statistical Summary', section='Results')
+
+    # Save the final report
+    report_fname = op.join(output_dir, "report_readiness_potential.html")
+    report.save(report_fname, overwrite=True, open_browser=False)
+
+    print(f"\n--- Analysis Complete. HTML report saved to {report_fname} ---")
+
+    # --- MODIFIED: Generate a simple MD summary file with region details ---
+    print("\n--- Generating machine-readable summary file for cross-analysis ---")
+    summary_md_fname = op.join(output_dir, "erp_subject_summary.md")
+    with open(summary_md_fname, 'w') as f:
+        for subject, results_dict in subject_specific_results.items():
+            significant_effects = []
+            # --- MODIFIED: This part now summarizes the detailed results for the MD file ---
+            for t_label, clusters_list in results_dict.items():
+                if clusters_list:
+                    # For the simple MD file, we just care about the regions involved
+                    found_regions_for_window = set()
+                    for cluster in clusters_list:
+                        for region, count in cluster['region_counts'].items():
+                            if count > 0:
+                                found_regions_for_window.add(region)
+                    
+                    if found_regions_for_window:
+                        effect_str = f"{t_label.title()}({','.join(sorted(list(found_regions_for_window)))})"
+                        significant_effects.append(effect_str)
+            
+            # Write the subject and their significant effects, comma-separated
+            f.write(f"{subject}:{','.join(significant_effects)}\n")
     
-    for i_clu, clu_ts in enumerate(clusters):
-        if cluster_p_values[i_clu] < 0.05:
-            ax.axvspan(times[clu_ts[0].min()], times[clu_ts[0].max()], color='gray', alpha=0.3)
-            print(f"    - Cluster #{i_clu+1}: p-value = {cluster_p_values[i_clu]:.3f}, "
-                  f"from {times[clu_ts[0].min()]:.3f}s to {times[clu_ts[0].max()]:.3f}s")
-
-    ax.legend()
-    ax.set_title(f"Difference Wave at '{channel_of_interest}' with Significance")
-    ax.set_xlabel("Time (s)")
-    ax.set_ylabel("Amplitude (µV)")
-    ax.invert_yaxis()
-    fig.tight_layout()
-    fig_fname = op.join(output_dir, f"grand_average_bp_stats_{channel_of_interest}.png")
-    fig.savefig(fig_fname)
-    plt.close(fig)
-    print(f"  - Saved stats plot.")
-
-    print("\n--- Analysis Complete ---")
+    print(f"  - Subject summary saved to {summary_md_fname}")
