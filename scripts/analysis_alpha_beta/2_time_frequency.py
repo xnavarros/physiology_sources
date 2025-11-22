@@ -7,8 +7,15 @@ import matplotlib.pyplot as plt
 from mne.stats import spatio_temporal_cluster_test, permutation_cluster_test
 from mne import Report
 
-def load_config(config_path="config/config.yaml"):
+def load_config(config_path=None):
     """Loads the configuration file."""
+    if config_path is None:
+        # Construct path relative to this script's location
+        script_dir = op.dirname(op.abspath(__file__))
+        # Go up two levels to get to the project root
+        root_dir = op.dirname(op.dirname(script_dir))
+        config_path = op.join(root_dir, 'config', 'config.yaml')
+        
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 

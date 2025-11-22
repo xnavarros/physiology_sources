@@ -87,17 +87,23 @@ if __name__ == "__main__":
     tfr_summary_path = op.join('results', 'TF_analysis', 'tfr_subject_summary.md')
     report_path = op.join('results', 'cross_analysis_report.md')
 
-    if not op.exists(erp_summary_path) or not op.exists(tfr_summary_path):
-        print("Error: Cannot find summary files. Please run analysis scripts 4 and 5 first.")
-        print(f"Looking for:\n- {erp_summary_path}\n- {tfr_summary_path}")
+    if not op.exists(erp_summary_path):
+        print(f"Error: Cannot find ERP summary file at {erp_summary_path}. Please run the readiness potential analysis first.")
         exit()
 
     erp_data = parse_summary_file(erp_summary_path)
-    tfr_data = parse_summary_file(tfr_summary_path)
+    
+    if op.exists(tfr_summary_path):
+        tfr_data = parse_summary_file(tfr_summary_path)
+        print(f"Loaded TFR summary from {tfr_summary_path}")
+    else:
+        print(f"WARNING: TFR summary file not found at {tfr_summary_path}. Proceeding with ERP data only.")
+        tfr_data = defaultdict(list) # Empty data for TFR
 
     # Group subjects by profile
     profiles = defaultdict(list)
-    all_subjects = sorted(list(set(erp_data.keys()) & set(tfr_data.keys())))
+    # Use all subjects found in ERP data (since TFR might be empty)
+    all_subjects = sorted(list(set(erp_data.keys()) | set(tfr_data.keys())))
 
     for subject in all_subjects:
         erp_features = get_features(erp_data[subject])
@@ -140,3 +146,15 @@ if __name__ == "__main__":
                 f.write("- This group shows a mix of effects that does not fit into a clear category.\n\n")
 
     print(f"Cross-analysis report saved to: {report_path}")
+
+    # --- NEW: Save profiles to a JSON file for other scripts to use ---
+    import json
+    json_path = op.join('results', 'subject_profiles.json')
+    
+    # Convert defaultdict to regular dict for JSON serialization
+    profiles_dict = {k: v for k, v in profiles.items()}
+    
+    with open(json_path, 'w') as f:
+        json.dump(profiles_dict, f, indent=4)
+    print(f"Subject profiles saved to JSON: {json_path}")
+

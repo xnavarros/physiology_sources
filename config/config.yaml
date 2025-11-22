@@ -74,3 +74,44 @@ group_stats:
   threshold: 1.25
   n_epochs: 10
   significance_level: 0.05
+
+# --- Analysis Parameters ---
+rois:
+  - precentral
+  - postcentral
+  - caudalmiddlefrontal
+  - superiorfrontal
+  - insula
+  - superiortemporal
+
+analysis_windows:
+  Early: [-1.5, -1.0]
+  Mid: [-1.0, -0.5]
+  Late: [-0.5, 0.0]
+  Post: [0.0, 0.5]
+
+cluster_channels:
+  - F1
+  - Fz
+  - F2
+  - F3
+  - F4
+  - FC1
+  - FC2
+  - FC3
+  - FC4
+  - C1
+  - Cz
+  - C2
+  - C3
+  - C4
+  - CP1
+  - CPz
+  - CP2
+  - CP3
+  - CP4
+  - P1
+  - Pz
+  - P2
+  - P3
+  - P4

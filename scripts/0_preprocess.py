@@ -10,9 +10,17 @@ import yaml
 import pandas as pd
 from mne_icalabel import label_components
 from autoreject import AutoReject 
+from joblib import Parallel, delayed
 
-def load_config(config_path="config/config.yaml"):
+def load_config(config_path=None):
     """Loads the configuration file."""
+    if config_path is None:
+        # Construct path relative to this script's location
+        script_dir = op.dirname(op.abspath(__file__))
+        # The config file is in the parent directory of the 'scripts' folder
+        root_dir = op.dirname(script_dir)
+        config_path = op.join(root_dir, 'config', 'config.yaml')
+        
     with open(config_path, 'r') as f:
         return yaml.safe_load(f)
 
@@ -161,19 +169,62 @@ def run_preprocessing_pipeline(raw_VS, raw_LD, events_VS, events_LD, event_id, p
     print(f"Final clean epochs: {len(epochs_VS_clean)} for VS, {len(epochs_LD_clean)} for LD.")
     return epochs_VS_clean, epochs_LD_clean, log_info
 
+def process_subject(subject, params, ar_params):
+    """
+    A wrapper function to process a single subject.
+    This function can be called in parallel.
+    """
+    print("\n" + "="*50)
+    print(f"Processing subject: {subject}")
+    print("="*50)
+    
+    # Define file paths
+    data_fname = op.join(params['base_data_dir'], subject, f"{subject}_CONTINU_64Ch_A2Ref")
+    output_dir = params['preprocessed_slow_potentials_dir']
+    
+    try:
+        # Load and prepare raw data
+        raw_VS, raw_LD, events_VS, events_LD, event_id = load_and_prepare_raw(data_fname, params)
+        
+        # If data loading fails, return an error log
+        if raw_VS is None:
+            raise ValueError("Failed during data loading and preparation.")
+
+        # Run the main preprocessing pipeline
+        epochs_VS_clean, epochs_LD_clean, log_info = run_preprocessing_pipeline(
+            raw_VS, raw_LD, events_VS, events_LD, event_id, params, ar_params
+        )
+        
+        # Save the cleaned epochs
+        epochs_VS_clean.save(op.join(output_dir, f"{subject}_VS-slow-epo.fif"), overwrite=True)
+        epochs_LD_clean.save(op.join(output_dir, f"{subject}_LD-slow-epo.fif"), overwrite=True)
+        
+        # Add subject info to the log and return
+        log_info['subject'] = subject
+        return log_info
+
+    except Exception as e:
+        print(f"!!! FAILED to process subject {subject}. Error: {e}")
+        # Log the failure and return
+        return {'subject': subject, 'status': 'FAILED', 'error': str(e)}
+
 if __name__ == "__main__":
     config = load_config()
     subjects = config['subjects']
-    # --- FIX: Load the correct parameter dictionary ---
-    # The preprocessing script should use 'preprocessing_params' from the config file.
     params = config['preprocessing_params']
     ar_params = config['autoreject_params']
 
-    # Add path definitions to the params dictionary for easy access
+    # --- FIX: Make all paths absolute from the project root ---
+    script_dir = op.dirname(op.abspath(__file__))
+    root_dir = op.dirname(script_dir)
+    
+    # Update paths in the config to be absolute
+    for key, path_val in config['paths'].items():
+        config['paths'][key] = op.join(root_dir, path_val)
+    
     params.update(config['paths'])
     # --- END FIX ---
 
-    # --- NEW: Override epoching and baseline parameters ---
     print("--- OVERRIDING EPOCH AND BASELINE PARAMETERS ---")
     params['tmin_slow'] = -2.0
     params['tmax_slow'] = 0.5
@@ -181,45 +232,19 @@ if __name__ == "__main__":
 
     print(f"  - New epoch time: {params['tmin_slow']}s to {params['tmax_slow']}s")
     print(f"  - New baseline: {params['baseline_timing_slow'][0]}s to {params['baseline_timing_slow'][1]}s")
-    # --- END NEW ---
 
-    # Create output directories if they don't exist
     output_dir = params['preprocessed_slow_potentials_dir']
     if not op.exists(output_dir):
         os.makedirs(output_dir)
-    
-    # Initialize a list to hold all log information
-    all_logs = []
 
-    for subject in subjects:
-        print("\n" + "="*50)
-        print(f"Processing subject: {subject}")
-        print("="*50)
-        
-        # Define file paths
-        data_fname = op.join(params['base_data_dir'], subject, f"{subject}_CONTINU_64Ch_A2Ref")
-        
-        try:
-            # Load and prepare raw data
-            raw_VS, raw_LD, events_VS, events_LD, event_id = load_and_prepare_raw(data_fname, params)
-            
-            # Run the main preprocessing pipeline
-            epochs_VS_clean, epochs_LD_clean, log_info = run_preprocessing_pipeline(
-                raw_VS, raw_LD, events_VS, events_LD, event_id, params, ar_params
-            )
-            
-            # Save the cleaned epochs
-            epochs_VS_clean.save(op.join(output_dir, f"{subject}_VS-slow-epo.fif"), overwrite=True)
-            epochs_LD_clean.save(op.join(output_dir, f"{subject}_LD-slow-epo.fif"), overwrite=True)
-            
-            # Add subject info to the log and append
-            log_info['subject'] = subject
-            all_logs.append(log_info)
-
-        except Exception as e:
-            print(f"!!! FAILED to process subject {subject}. Error: {e}")
-            # Log the failure
-            all_logs.append({'subject': subject, 'status': 'FAILED', 'error': str(e)})
+    # --- PARALLEL PROCESSING ---
+    # Use joblib to run the processing for each subject in parallel.
+    # n_jobs=-1 tells joblib to use all available CPU cores.
+    print("\n--- Starting Parallel Processing for All Subjects ---")
+    all_logs = Parallel(n_jobs=-1)(
+        delayed(process_subject)(subject, params, ar_params) for subject in subjects
+    )
+    # --- END PARALLEL PROCESSING ---
 
     # Save the logs to a CSV file
     log_df = pd.DataFrame(all_logs)
