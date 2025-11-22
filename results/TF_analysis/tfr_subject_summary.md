@@ -1,4 +1,4 @@
-BJ25:High Beta-Post(Central,Frontal,Parietal)
+BJ25:Low Beta-Early(Frontal),High Beta-Post(Central,Frontal,Parietal)
 JS08:Low Beta-Late(Central,Frontal,Parietal),High Beta-Late(Central,Frontal,Parietal),Alpha-Post(Central,Frontal,Parietal),Low Beta-Post(Central,Frontal,Parietal),High Beta-Post(Central,Frontal,Parietal)
 LP26:Alpha-Post(Central,Frontal,Parietal),Low Beta-Post(Central,Frontal,Parietal),High Beta-Post(Central,Frontal,Parietal)
 MC05:Low Beta-Early(Central,Frontal,Parietal),Alpha-Post(Central,Frontal,Parietal),Low Beta-Post(Central,Frontal,Parietal),High Beta-Post(Central,Frontal,Parietal)
@@ -6,5 +6,5 @@ MN23:High Beta-Late(Central,Frontal,Parietal),Alpha-Post(Central,Frontal,Parieta
 OL04:High Beta-Post(Central,Frontal,Parietal)
 SB27:High Beta-Mid(Central,Parietal),High Beta-Post(Central,Frontal,Parietal)
 TH24:Low Beta-Mid(Central,Frontal,Parietal),Low Beta-Late(Central,Frontal,Parietal),High Beta-Late(Central,Frontal,Parietal),Low Beta-Post(Central,Frontal,Parietal),High Beta-Post(Central,Frontal,Parietal)
-VA14:High Beta-Mid(Central,Frontal,Parietal),High Beta-Late(Central,Frontal,Parietal),Low Beta-Post(Central,Frontal,Parietal),High Beta-Post(Central,Frontal,Parietal)
+VA14:High Beta-Mid(Central,Frontal,Parietal),High Beta-Late(Central,Frontal,Parietal),High Beta-Post(Central,Frontal,Parietal)
 VS06:High Beta-Early(Parietal),Alpha-Late(Central,Frontal,Parietal),Low Beta-Late(Central,Frontal,Parietal),High Beta-Post(Central,Frontal)

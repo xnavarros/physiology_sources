@@ -1,5 +1,6 @@
 import os
 import os.path as op
+import json
 import mne
 import yaml
 import numpy as np
@@ -39,11 +40,24 @@ if __name__ == "__main__":
 
     report = mne.Report(title='Source Analysis Report: Alpha & Beta Power', verbose=False)
 
-    profile_map = {
-        "Early Preparer": ["MC05", "BJ25", "VS06"],
-        "Late Preparer": ["JS08", "TH24", "VA14", "MN23", "SB27"],
-        "Reactive Responder": ["LP26", "OL04"]
-    }
+    # --- Load profiles from JSON ---
+    # Construct path relative to this script's location
+    script_dir = op.dirname(op.abspath(__file__))
+    root_dir = op.dirname(op.dirname(script_dir))
+    json_path = op.join(root_dir, 'results', 'subject_profiles.json')
+    
+    if op.exists(json_path):
+        with open(json_path, 'r') as f:
+            profile_map = json.load(f)
+        print(f"Loaded subject profiles from {json_path}")
+    else:
+        print(f"WARNING: Profile JSON not found at {json_path}. Using default hardcoded profiles.")
+        profile_map = {
+            "Early Preparer": ["MC05", "BJ25", "VS06"],
+            "Late Preparer": ["JS08", "TH24", "VA14", "MN23", "SB27"],
+            "Reactive Responder": ["LP26", "OL04"]
+        }
+
     subject_to_profile = {sub: prof for prof, subs in profile_map.items() for sub in subs}
 
     freq_bands = {'alpha': [8, 12], 'beta': [13, 30]}
