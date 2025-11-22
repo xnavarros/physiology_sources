@@ -91,16 +91,19 @@ if __name__ == "__main__":
     print("  - Added grand average plot to report.")
 
     # --- 3. & 4. STATISTICAL ANALYSIS & RESULT STORAGE ---
-    freq_bands = {"alpha": (8.0, 12.0), "beta": (13.0, 30.0)}
+    # --- MODIFIED: Split the Beta band into Low and High Beta ---
+    freq_bands = {
+        "alpha": (8.0, 12.0), 
+        "low_beta": (13.0, 20.0),
+        "high_beta": (20.0, 30.0)
+    }
     time_windows = {"early": (-1.5, -1.0), "mid": (-1.0, -0.5), "late": (-0.5, 0.0), "post": (0.0, 0.5)}
     info = all_tfr_vs[0].info
     adjacency, ch_names_from_adj = mne.channels.find_ch_adjacency(info, ch_type='eeg')
 
-    # --- NEW: Define a corrected alpha for multiple comparisons ---
-    n_tests = len(time_windows) * len(freq_bands)
+    # --- MODIFIED: No longer need corrected_alpha up front for FDR ---
     alpha = 0.05
-    corrected_alpha = alpha / n_tests
-    print(f"\n--- Using Bonferroni-corrected alpha of {corrected_alpha:.4f} for {n_tests} tests (windows x bands) ---")
+    print(f"\n--- Using an initial alpha of {alpha} for discovery, will apply FDR correction later ---")
 
     # --- NEW: Define channel regions for reporting ---
     regions = {
@@ -148,6 +151,9 @@ if __name__ == "__main__":
     # --- MODIFIED: New data structure for detailed results ---
     subject_specific_results = {subject: {f"{band}-{t_label}": [] for t_label in time_windows for band in freq_bands} for subject in subjects}
 
+    # --- NEW: List to collect all potential clusters for FDR correction ---
+    all_clusters_uncorrected = []
+
     # Group-level analysis (remains high-level for now)
     for t_label, (tmin, tmax) in time_windows.items():
         for band, (fmin, fmax) in freq_bands.items():
@@ -158,11 +164,11 @@ if __name__ == "__main__":
             X = X_diff.transpose(0, 2, 1)
             t_obs, clusters, cluster_p, _ = spatio_temporal_cluster_test([X], adjacency=adjacency, n_permutations=1024, n_jobs=-1)
             
-            # Use corrected alpha for group test as well
-            n_sig_clusters = len(np.where(cluster_p < corrected_alpha)[0])
+            # Use uncorrected alpha for group test discovery
+            n_sig_clusters = len(np.where(cluster_p < alpha)[0])
             group_results[(t_label, band)] = n_sig_clusters
             if n_sig_clusters > 0:
-                print(f"  >>> Found {n_sig_clusters} significant GROUP clusters.")
+                print(f"  >>> Found {n_sig_clusters} potentially significant GROUP clusters.")
 
     # Subject-level analysis
     print("\n" + "="*80 + "\n--- Running WITHIN-SUBJECT Analysis ---\n" + "="*80)
@@ -198,8 +204,8 @@ if __name__ == "__main__":
                     # Run cluster test for this subject
                     t_obs_subj, clusters_subj, cluster_p_subj, _ = permutation_cluster_test(X_subject, adjacency=adjacency, n_permutations=1000, n_jobs=-1)
                     
-                    # --- MODIFIED: Use corrected alpha and extract full details ---
-                    significant_clusters_idx = np.where(cluster_p_subj < corrected_alpha)[0]
+                    # --- MODIFIED: Use uncorrected alpha for discovery, then collect for FDR ---
+                    significant_clusters_idx = np.where(cluster_p_subj < alpha)[0]
                     if len(significant_clusters_idx) > 0:
                         n_sig_subjects += 1
                         
@@ -231,13 +237,40 @@ if __name__ == "__main__":
                                 "total_channels": num_unique_channels,
                                 "region_counts": region_counts
                             }
-                            subject_specific_results[subject][f"{band}-{t_label}"].append(cluster_details)
+                            
+                            # --- NEW: Add all details to a temporary list for FDR ---
+                            all_clusters_uncorrected.append({
+                                'subject': subject,
+                                'effect_label': f"{band}-{t_label}",
+                                'details': cluster_details
+                            })
 
                 except Exception as e:
                     print(f"  - Could not process subject {subject}. Error: {e}")
                     continue
             
             print(f"  >>> SUMMARY: {n_sig_subjects} out of {len(subjects)} subjects showed a significant difference.")
+
+    # --- NEW: FDR Correction Step ---
+    print("\n--- Applying FDR correction across all found clusters ---")
+    if all_clusters_uncorrected:
+        # Extract all p-values
+        p_values = [c['details']['p_value'] for c in all_clusters_uncorrected]
+        
+        # Apply FDR correction
+        reject, pvals_corrected = mne.stats.fdr_correction(p_values, alpha=alpha, method='indep')
+        
+        # Populate the final results dictionary with only the significant clusters
+        for i, cluster_info in enumerate(all_clusters_uncorrected):
+            if reject[i]:
+                # Update the p-value to the corrected one for reporting
+                cluster_info['details']['p_value'] = pvals_corrected[i]
+                subj = cluster_info['subject']
+                effect = cluster_info['effect_label']
+                subject_specific_results[subj][effect].append(cluster_info['details'])
+        print(f"  - Found {sum(reject)} significant clusters after FDR correction.")
+    else:
+        print("  - No clusters found to correct.")
 
     # --- 5. GENERATE FINAL HTML REPORT ---
     print("\n--- Generating final HTML analysis report ---")
@@ -263,9 +296,9 @@ if __name__ == "__main__":
         <li><b>Group Level:</b> A non-parametric, cluster-based permutation test was performed on the subject-averaged data.</li>
         <li><b>Individual Level:</b> A within-subject cluster-based permutation test was performed for each participant.</li>
     </ol>
-    <p>Both analyses were run separately for two frequency bands (Alpha: 8-12 Hz, Beta: 13-30 Hz) and the following time windows:</p>
+    <p>Both analyses were run separately for three frequency bands (Alpha: 8-12 Hz, Low Beta: 13-20 Hz, High Beta: 20-30 Hz) and the following time windows:</p>
     <ul>{time_window_list_html}</ul>
-    <p>A Bonferroni correction was applied to account for the {n_tests} tests performed, resulting in a significance threshold of <b>p < {corrected_alpha:.4f}</b>.</p>
+    <p>A False Discovery Rate (FDR) correction was applied across all found clusters to control for multiple comparisons, with a significance threshold of <b>q < {alpha}</b>.</p>
     """
     report.add_html(html=desc_html, title='Analysis Description', section='Methods')
 
@@ -278,7 +311,7 @@ if __name__ == "__main__":
         has_any_sig = any(res for res in results_by_effect.values())
         
         if not has_any_sig:
-            subject_table_html += f"<p>No significant clusters found (p < {corrected_alpha:.4f}).</p>"
+            subject_table_html += f"<p>No significant clusters found (FDR corrected q < {alpha}).</p>"
             continue
 
         subject_table_html += """
@@ -306,7 +339,8 @@ if __name__ == "__main__":
             
             for i, cluster in enumerate(sorted_clusters):
                 row_start = f'<tr style="background-color: #f8f9fa;">' if i == 0 else '<tr>'
-                effect_cell = f'<td rowspan="{len(sorted_clusters)}">{effect_label.replace("-", " ").title()}</td>' if i == 0 else ''
+                effect_label_formatted = effect_label.replace("_", " ").replace("-", " ").title()
+                effect_cell = f'<td rowspan="{len(sorted_clusters)}">{effect_label_formatted}</td>' if i == 0 else ''
                 
                 p_val_str = f"{cluster['p_value']:.4f}"
                 strength_str = cluster['strength']
@@ -348,7 +382,6 @@ if __name__ == "__main__":
     with open(summary_md_fname, 'w') as f:
         for subject, results_by_effect in subject_specific_results.items():
             significant_effects = []
-            # --- MODIFIED: This part now summarizes the detailed results for the MD file ---
             for effect_label, clusters_list in results_by_effect.items():
                 if clusters_list:
                     found_regions_for_effect = set()
@@ -360,7 +393,7 @@ if __name__ == "__main__":
                     if found_regions_for_effect:
                         band, t_label = effect_label.split('-')
                         regions_str = ",".join(sorted(list(found_regions_for_effect)))
-                        effect_str = f"{band.title()}-{t_label.title()}({regions_str})"
+                        effect_str = f"{band.replace('_', ' ').title()}-{t_label.title()}({regions_str})"
                         significant_effects.append(effect_str)
             
             f.write(f"{subject}:{','.join(significant_effects)}\n")
