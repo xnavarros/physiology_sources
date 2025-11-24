@@ -6,6 +6,11 @@ import yaml
 import matplotlib.pyplot as plt
 from mne.stats import spatio_temporal_cluster_test, permutation_cluster_test
 from mne import Report
+import sys
+
+# Add project root to path to import utils
+sys.path.append(op.join(op.dirname(__file__), '..', '..'))
+from scripts.utils.paper_data_manager import PaperDataManager
 
 def load_config(config_path=None):
     """Loads the configuration file."""
@@ -260,6 +265,10 @@ if __name__ == "__main__":
 
     # --- NEW: FDR Correction Step ---
     print("\n--- Applying FDR correction across all found clusters ---")
+    
+    # Initialize Data Manager
+    data_manager = PaperDataManager(config['paths']['results_dir'])
+
     if all_clusters_uncorrected:
         # Extract all p-values
         p_values = [c['details']['p_value'] for c in all_clusters_uncorrected]
@@ -275,6 +284,22 @@ if __name__ == "__main__":
                 subj = cluster_info['subject']
                 effect = cluster_info['effect_label']
                 subject_specific_results[subj][effect].append(cluster_info['details'])
+                
+                # Save to Paper Data
+                data_manager.add_result(
+                    analysis_type="alpha_beta_tfr",
+                    subject=subj,
+                    metric_name=f"cluster_{effect}_{i}", # Unique key
+                    value={
+                        "p_value": float(pvals_corrected[i]),
+                        "band": effect.split('-')[0],
+                        "window": effect.split('-')[1],
+                        "cluster_mass": float(cluster_info['details']['cluster_mass']),
+                        "duration_ms": float(cluster_info['details']['duration_ms']),
+                        "region_counts": cluster_info['details']['region_counts']
+                    }
+                )
+
         print(f"  - Found {sum(reject)} significant clusters after FDR correction.")
     else:
         print("  - No clusters found to correct.")

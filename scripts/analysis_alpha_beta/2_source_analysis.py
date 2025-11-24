@@ -10,6 +10,11 @@ from scipy.stats import ttest_ind, ttest_1samp
 from matplotlib.colors import LinearSegmentedColormap, Normalize, TwoSlopeNorm
 import matplotlib.pyplot as plt
 from matplotlib.colorbar import ColorbarBase
+import sys
+
+# Add project root to path to import utils
+sys.path.append(op.join(op.dirname(__file__), '..', '..'))
+from scripts.utils.paper_data_manager import PaperDataManager
 
 def load_config(config_path=None):
     """Loads the configuration file."""
@@ -60,8 +65,11 @@ if __name__ == "__main__":
 
     subject_to_profile = {sub: prof for prof, subs in profile_map.items() for sub in subs}
 
+    # Initialize Data Manager
+    data_manager = PaperDataManager(config['paths']['results_dir'])
+
     freq_bands = {'alpha': [8, 12], 'beta': [13, 30]}
-    baseline_window = (-2.0, -1.0)
+    baseline_window = (-2.0, -1.5)
     active_windows = {"Early": (-1.5, -1.0), "Mid": (-1.0, -0.5), "Late": (-0.5, 0.0), "Post": (0.0, 0.5)}
 
     # --- 2. LOAD MODELS AND DATA ---
@@ -143,6 +151,20 @@ if __name__ == "__main__":
                         "Subject": subject, "Profile": profile, "Region": label.name, 
                         "Window": window_name, "Band": band, "PowerChange": roi_values[i, 0]
                     })
+
+                    # Save to Paper Data
+                    data_manager.add_result(
+                        analysis_type="alpha_beta_source_roi",
+                        subject=subject,
+                        metric_name=f"{label.name}_{window_name}_{band}",
+                        value=float(roi_values[i, 0]),
+                        metadata={
+                            "profile": profile,
+                            "region": label.name,
+                            "window": window_name,
+                            "band": band
+                        }
+                    )
 
     df_all_subjects = pd.DataFrame(all_subject_results)
 
@@ -261,7 +283,7 @@ if __name__ == "__main__":
     # FIX: Update explanation to reflect baseline significance
     explanation_html = """
     <h3>Methodology and Interpretation (Alpha/Beta Power)</h3>
-    <p>The values in the table represent the percentage change in power of the <strong>Loaded (LD) vs. Spontaneous (VS)</strong> difference, relative to a VS baseline period (-2.0s to -1.0s).</p>
+    <p>The values in the table represent the percentage change in power of the <strong>Loaded (LD) vs. Spontaneous (VS)</strong> difference, relative to a VS baseline period (-2.0s to -1.5s).</p>
     <p><code>% Change = 100 * ( (Power_LD_active - Power_VS_active) / Power_VS_baseline )</code></p>
     <p>A <strong>negative value</strong> (e.g., -40%) indicates power suppression (desynchronization). A <strong>positive value</strong> indicates power increase (synchronization).</p>
     <p>The asterisk <strong>(*)</strong> indicates a statistically significant difference (p < 0.05) of that activity compared to its own baseline (i.e., significantly different from zero).</p>

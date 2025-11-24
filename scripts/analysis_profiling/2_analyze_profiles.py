@@ -23,12 +23,20 @@ if __name__ == "__main__":
     config = load_config()
     subjects = config['subjects']
     
-    # Define the subject profiles based on the cross-analysis
-    profiles = {
-        "Co-localized Early Preparers": ['BJ25', 'MC05', 'VS06'],
-        "Late Preparers": ['MN23', 'VA14', 'JS08', 'TH24'],
-        "Reactive Responders": ['LP26', 'OL04', 'SB27']
-    }
+    # Load subject profiles from JSON
+    import json
+    profiles_json_path = op.join(config['paths']['results_dir'], 'subject_profiles.json')
+    if op.exists(profiles_json_path):
+        with open(profiles_json_path, 'r') as f:
+            profiles = json.load(f)
+        print(f"Loaded profiles from {profiles_json_path}")
+    else:
+        print("WARNING: Profiles JSON not found. Using default/fallback profiles.")
+        profiles = {
+            "Co-localized Early Preparers": ['BJ25', 'MC05', 'VS06'],
+            "Late Preparers": ['MN23', 'VA14', 'JS08', 'TH24'],
+            "Reactive Responders": ['LP26', 'OL04', 'SB27']
+        }
 
     # Define input and output paths
     erp_input_dir = config['paths']['preprocessed_slow_potentials_dir']
@@ -104,20 +112,24 @@ if __name__ == "__main__":
     # Add descriptive text for the profiles
     profiling_html = """
     <h2>Subject Profile Descriptions</h2>
-    <p>Based on the timing and location of significant ERP and TFR effects from previous analyses, subjects were grouped into three distinct profiles representing different neural strategies.</p>
-    
-    <h3>Profile 1: Co-localized Early Preparers</h3>
-    <p><b>Subjects:</b> BJ25, MC05, VS06</p>
-    <p><b>Characteristics:</b> These subjects exhibit the strongest preparatory strategy. They show a sustained readiness potential (ERP) and an early, specific change in beta power (TFR) in overlapping brain regions (Central/Frontal). This indicates a unified, proactive motor strategy.</p>
-    
-    <h3>Profile 2: Late/Motor-Focused Preparers</h3>
-    <p><b>Subjects:</b> MN23, VA14, JS08, TH24</p>
-    <p><b>Characteristics:</b> These subjects delay their specific motor preparation. Their key oscillatory changes (beta power decrease) only appear in the mid-to-late preparatory windows, suggesting a "just-in-time" ramping up of motor-related activity.</p>
-    
-    <h3>Profile 3: Reactive Responders</h3>
-    <p><b>Subjects:</b> LP26, OL04, SB27</p>
-    <p><b>Characteristics:</b> This group is defined by a lack of significant preparatory activity. Brain activity differences only appear *after* the action is complete, suggesting their response is to the sensory feedback of the sigh itself, not in anticipation of it.</p>
+    <p>Based on the timing and location of significant ERP and TFR effects from previous analyses, subjects were grouped into distinct profiles representing different neural strategies.</p>
     """
+    
+    for profile_name, subject_list in profiles.items():
+        profiling_html += f"<h3>Profile: {profile_name}</h3>"
+        profiling_html += f"<p><b>Subjects:</b> {', '.join(subject_list)}</p>"
+        
+        if profile_name == "Co-localized Early Preparers":
+             profiling_html += "<p><b>Characteristics:</b> Strongest preparatory strategy. Sustained readiness potential (ERP) and early, specific change in beta power (TFR) in overlapping brain regions.</p>"
+        elif profile_name == "Late/Motor-Focused Preparer":
+             profiling_html += "<p><b>Characteristics:</b> Delayed specific motor preparation. Oscillatory changes (beta power decrease) appear in mid-to-late preparatory windows.</p>"
+        elif profile_name == "Reactive Responder":
+             profiling_html += "<p><b>Characteristics:</b> Lack of significant preparatory activity. Brain activity differences appear after the action.</p>"
+        elif profile_name == "Sustained ERP Responder (No specific TFR prep)":
+             profiling_html += "<p><b>Characteristics:</b> Widespread ERP difference throughout the trial but lacks specific oscillatory motor preparation signals.</p>"
+        elif profile_name == "Mixed/Other":
+             profiling_html += "<p><b>Characteristics:</b> Mix of effects that does not fit into a clear category.</p>"
+
     report.add_html(html=profiling_html, title='Profile Descriptions', section='Profiles')
 
     # Generate and add comparison plots to the report

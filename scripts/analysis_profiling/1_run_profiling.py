@@ -2,6 +2,12 @@ import os
 import os.path as op
 from collections import defaultdict
 import re
+import sys
+import json
+
+# Add project root to path to import utils
+sys.path.append(op.join(op.dirname(__file__), '..', '..'))
+from scripts.utils.paper_data_manager import PaperDataManager
 
 def parse_summary_file(filepath):
     """
@@ -17,7 +23,26 @@ def parse_summary_file(filepath):
             if ':' not in line or line.startswith("Subject") or line.startswith("-"):
                 continue
             subject, effects_str = line.strip().split(':', 1)
-            effects = effects_str.split(',') if effects_str else []
+            
+            # Robust splitting: split by comma only if not inside parentheses
+            effects = []
+            current = []
+            depth = 0
+            for char in effects_str:
+                if char == '(':
+                    depth += 1
+                    current.append(char)
+                elif char == ')':
+                    depth -= 1
+                    current.append(char)
+                elif char == ',' and depth == 0:
+                    effects.append("".join(current).strip())
+                    current = []
+                else:
+                    current.append(char)
+            if current:
+                effects.append("".join(current).strip())
+            
             data[subject] = effects
     return data
 
@@ -31,11 +56,15 @@ def get_features(effects):
 
         # --- FIX: Safely parse regions ---
         regions = set()
-        if '(' in eff:
-            found = re.findall(r'\((.*?)\)', eff)
-            # Check if findall returned a result and if that result is not an empty string
-            if found and found[0]:
-                regions.update(found[0].split(','))
+        match = re.search(r'\((.*?)\)', eff)
+        if match:
+            # Split regions by comma and strip whitespace
+            regions.update([r.strip() for r in match.group(1).split(',')])
+        
+        # If no regions found (or just empty parens), add a placeholder 
+        # so the timing set is not empty (truthy)
+        if not regions:
+            regions.add("Global")
         
         if 'Early' in eff or 'early' in eff:
             features['early'].update(regions)
@@ -105,11 +134,34 @@ if __name__ == "__main__":
     # Use all subjects found in ERP data (since TFR might be empty)
     all_subjects = sorted(list(set(erp_data.keys()) | set(tfr_data.keys())))
 
+    # Initialize Data Manager
+    results_dir = op.join('results')
+    if not op.exists(results_dir):
+        os.makedirs(results_dir)
+    data_manager = PaperDataManager(results_dir)
+
     for subject in all_subjects:
         erp_features = get_features(erp_data[subject])
         tfr_features = get_features(tfr_data[subject])
         profile = classify_subject(erp_features, tfr_features)
         profiles[profile].append(subject)
+        print(f"Subject {subject} classified as: {profile}")
+
+        # Save to Paper Data
+        # Convert sets to lists for JSON serialization
+        erp_serializable = {k: list(v) for k, v in erp_features.items()}
+        tfr_serializable = {k: list(v) for k, v in tfr_features.items()}
+        
+        data_manager.add_result(
+            analysis_type="profiling",
+            subject=subject,
+            metric_name="profile_classification",
+            value=profile,
+            metadata={
+                "erp_features": erp_serializable,
+                "tfr_features": tfr_serializable
+            }
+        )
 
     # --- Generate Report ---
     with open(report_path, 'w') as f:
@@ -134,6 +186,7 @@ if __name__ == "__main__":
                 f.write("- **Interpretation:** Employs a reactive strategy with minimal neural preparation.\n\n")
             elif profile_name == "Late/Motor-Focused Preparer":
                 f.write("- TFR effects emerge primarily in the mid-to-late preparatory windows.\n")
+                f.write("- Often associated with Beta band desynchronization in motor areas.\n")
                 f.write("- **Interpretation:** Preparation seems to ramp up closer to the motor event.\n\n")
             elif profile_name == "Sustained ERP Responder (No specific TFR prep)":
                 f.write("- Shows a widespread ERP difference throughout the trial.\n")

@@ -4,6 +4,11 @@ import mne
 import numpy as np
 import yaml
 import matplotlib.pyplot as plt
+import sys
+
+# Add project root to path to import utils
+sys.path.append(op.join(op.dirname(__file__), '..', '..'))
+from scripts.utils.paper_data_manager import PaperDataManager
 
 def load_config(config_path=None):
     """Loads the configuration file."""
@@ -122,6 +127,9 @@ if __name__ == "__main__":
     significant_clusters = np.where(cluster_p_values < 0.05)[0]
     print(f"  - Found {len(significant_clusters)} significant clusters.")
 
+    # Initialize Data Manager
+    data_manager = PaperDataManager(config['paths']['results_dir'])
+
     if not len(significant_clusters):
         print("  - No significant clusters found.")
     
@@ -145,6 +153,20 @@ if __name__ == "__main__":
         print(f"\n--- Visualizing Cluster #{i_clu + 1} (p-value: {cluster_p_values[clu_idx]:.3f}) ---")
         print(f"  - Time window: {time_interval[0]:.3f}s to {time_interval[1]:.3f}s")
         print(f"  - Channels involved: {len(ch_names_in_cluster)}")
+
+        # Save to Paper Data
+        data_manager.add_result(
+            analysis_type="slow_wave_cluster_test",
+            subject="Group",
+            metric_name=f"cluster_{i_clu+1}",
+            value={
+                "p_value": float(cluster_p_values[clu_idx]),
+                "time_start": float(time_interval[0]),
+                "time_end": float(time_interval[1]),
+                "num_channels": len(ch_names_in_cluster),
+                "channels": ch_names_in_cluster
+            }
+        )
 
         # Plot 1: Topography of the cluster effect
         # Calculate the average effect within the cluster's time window

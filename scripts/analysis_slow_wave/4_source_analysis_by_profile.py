@@ -9,6 +9,11 @@ import pandas as pd
 from itertools import combinations
 from scipy.stats import ttest_ind
 import seaborn as sns
+import sys
+
+# Add project root to path to import utils
+sys.path.append(op.join(op.dirname(__file__), '..', '..'))
+from scripts.utils.paper_data_manager import PaperDataManager
 
 def load_config(config_path=None):
     """Loads the configuration file."""
@@ -76,6 +81,9 @@ if __name__ == "__main__":
     
     subject_to_profile = {sub: prof for prof, subs in profile_map.items() for sub in subs}
 
+    # Initialize Data Manager
+    data_manager = PaperDataManager(config['paths']['results_dir'])
+
     # --- 2. LOAD MODELS AND DATA ---
     print("\n--- Loading common fsaverage models and subject data ---")
     try:
@@ -114,7 +122,7 @@ if __name__ == "__main__":
     active_windows = config.get('analysis_windows', {"Early": (-1.5, -1.0), "Mid": (-1.0, -0.5), "Late": (-0.5, 0.0), "Post": (0.0, 0.5)})
     
     selected_labels = [lbl for lbl in labels if any(name in lbl.name for name in roi_names)]
-    baseline_window = (-2.0, -1.0) # This could also be in config, but let's stick to the requested changes for now
+    baseline_window = (-2.0, -1.5) # Standardized to match preprocessing and avoid "Early" window contamination
 
 
     for subject, evoked in all_evokeds.items():
@@ -132,6 +140,19 @@ if __name__ == "__main__":
                 activity = stc_abs.extract_label_time_course(label, src=fwd['src'], mode='mean')[0, 0]
                 z_score = (activity - baseline_means[i]) / baseline_stds[i] if baseline_stds[i] > 1e-12 else 0.0
                 all_subject_results.append({"Subject": subject, "Profile": subject_to_profile[subject], "Region": label.name, "Window": window_name, "Z-Score": z_score})
+
+                # Save to Paper Data
+                data_manager.add_result(
+                    analysis_type="slow_wave_source_roi",
+                    subject=subject,
+                    metric_name=f"{label.name}_{window_name}",
+                    value=float(z_score),
+                    metadata={
+                        "profile": subject_to_profile[subject],
+                        "region": label.name,
+                        "window": window_name
+                    }
+                )
 
     df_all_subjects = pd.DataFrame(all_subject_results)
     
@@ -206,7 +227,7 @@ if __name__ == "__main__":
     <h3>Methodology and Interpretation</h3>
     <p>The following tables summarize the normalized brain activity (Z-scores) for each profile group within specific Regions of Interest (ROIs) and time windows.</p>
     <h4>Baseline Calculation</h4>
-    <p>The baseline activity for each ROI was calculated from the pre-stimulus period of <strong>-2.0s to -1.0s</strong>. The mean and standard deviation of the absolute source power within this period were computed for each subject's ROI.</p>
+    <p>The baseline activity for each ROI was calculated from the pre-stimulus period of <strong>-2.0s to -1.5s</strong>. The mean and standard deviation of the absolute source power within this period were computed for each subject's ROI.</p>
     <h4>Z-Score Calculation</h4>
     <p>The Z-score for an active window was then computed using the formula: <code>Z = (activity_in_window - baseline_mean) / baseline_standard_deviation</code>.</p>
     <h4>Interpretation</h4>
