@@ -4,7 +4,7 @@ This report groups subjects into profiles based on the timing and location of th
 
 ## Profile: Co-localized Early Preparer
 
-**Subjects:** BJ25, MC05
+**Subjects:** MC05
 
 **Characteristics:**
 - Shows significant ERP and TFR effects early in the preparatory period.
@@ -38,7 +38,7 @@ This report groups subjects into profiles based on the timing and location of th
 
 ## Profile: Sustained ERP Responder (No specific TFR prep)
 
-**Subjects:** OL04
+**Subjects:** BJ25, OL04
 
 **Characteristics:**
 - Shows a widespread ERP difference throughout the trial.

@@ -1,0 +1,25 @@
+Methods
+Data Preprocessing
+EEG data processing was performed using Python (v3.11) and the MNE-Python toolbox. Raw data were first re-referenced to a common average reference (CAR). To preserve Pre-Inspiratory Potentials (PIP), also referred to as Respiratory Readiness Potentials (RRP), a band-pass filter was applied from 0.1 to 40 Hz. A notch filter was applied at 50 Hz and its harmonics to remove line noise.
+Continuous data were segmented into epochs time-locked to the onset of inspiration (marker Response/R128). Epochs were defined from -2.0 s to +0.5 s relative to the breath onset.
+Artifact correction was performed in two steps:
+1. Independent Component Analysis (ICA): An extended Infomax ICA was fitted to a high-pass filtered copy of the data (1.0 Hz) to ensure stable decomposition. Artifactual components (ocular, cardiac, and muscle artifacts) were identified and removed using the mne-icalabel automated classifier. Additionally, components significantly correlated with respiratory signals (Debit, Pression) were identified and rejected. The resulting unmixing matrix was applied to the original 0.1–40 Hz data.
+2. Automated Epoch Rejection: The Autoreject algorithm was used to repair noisy channels via interpolation and reject epochs that remained noisy after repair.
+Finally, a baseline correction was applied using the interval [-2.0, -1.5] s. This specific window was chosen to avoid subtracting the early phase of the PIP, which typically begins around -1.5 s.
+
+Pre-Inspiratory Potential (PIP) Analysis
+Cleaned epochs were averaged separately for the Spontaneous Ventilation (SV) and Loaded Breathing (LD) conditions to compute the PIP. Statistical analysis was performed using non-parametric spatio-temporal cluster-based permutation tests to compare the SV and LD conditions. Analysis was conducted across four time windows of interest: Early (-1.5 to -1.0 s), Mid (-1.0 to -0.5 s), Late (-0.5 to 0.0 s), and Post (0.0 to +0.5 s).
+Time-Frequency Analysis
+Time-frequency representations (TFRs) of power were computed using Morlet wavelets. The analysis covered frequencies from 8 to 30 Hz (Alpha and Beta bands) with the number of cycles set to freqs / 2 to balance temporal and spectral precision. Power values were baseline-corrected using a Z-score transformation relative to the [-2.0, -1.5] s baseline period.
+Statistical comparisons between SV and LD conditions were performed using cluster-based permutation tests, separately for Alpha (8–12 Hz), Low Beta (13–20 Hz), and High Beta (20–30 Hz) bands. False Discovery Rate (FDR) correction was applied to control for multiple comparisons across time windows and frequency bands.
+
+Subject Profiling
+To characterize individual variability in respiratory preparation, subjects were classified into distinct profiles based on the temporal and spatial characteristics of their significant neural responses. Classification criteria included:
+* Timing of Activity: Presence of significant PIP or TFR effects in the Early, Mid, or Late preparatory windows.
+* Spatial Overlap: The degree of spatial congruence between slow wave (PIP) and oscillatory (TFR) effects.
+
+Source Reconstruction
+Source localization was performed on the fsaverage template brain using beamforming techniques. Source estimates were extracted from predefined Regions of Interest (ROIs) based on the Desikan-Killiany atlas, including precentral, postcentral, caudal middle frontal, superior frontal, insula, and superior temporal cortices.
+* Slow Potentials (Time Domain): A Linearly Constrained Minimum Variance (LCMV) beamformer was used to localize the sources of the PIP. The data covariance matrix was computed from the -0.5 to 0.5 s window. Spatial filters were constructed with a regularization parameter of 0.025 and unit-noise-gain weight normalization. Source activity was quantified as a Z-score relative to the mean and standard deviation of the baseline period ([-2.0, -1.5] s).
+* Oscillatory Power (Frequency Domain): A Dynamic Imaging of Coherent Sources (DICS) beamformer was used to localize power changes in the Alpha and Beta bands. Cross-spectral density (CSD) matrices were computed using the Fourier method. Source power was expressed as the percentage change in the SV-LD difference relative to the SV baseline.
+Source analysis was performed at the group level for each identified subject profile to reveal distinct neural strategies associated with different preparatory patterns.

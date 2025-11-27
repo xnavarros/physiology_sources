@@ -215,7 +215,8 @@ if __name__ == "__main__":
 
         brain.set_time(peak_time)
         
-        fig_fname = op.join(output_dir, f"temp_source_plot_{profile_name.replace(' ', '_')}.png")
+        safe_profile_name = profile_name.replace(' ', '_').replace('/', '_')
+        fig_fname = op.join(output_dir, f"temp_source_plot_{safe_profile_name}.png")
         brain.save_image(fig_fname)
         brain.close()
 

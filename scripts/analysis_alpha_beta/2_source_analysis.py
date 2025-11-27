@@ -256,10 +256,11 @@ if __name__ == "__main__":
                     ticks = [-local_lim, local_lim]
 
                 # --- Plot 1: Brain (no colorbar) ---
+                safe_profile_name = profile_name.replace(' ', '_').replace('/', '_')
                 brain = mne.viz.Brain('fsaverage', subjects_dir=subjects_dir, surf='pial', hemi='split', views=['lat', 'med'], size=(800, 400), background='white', view_layout='horizontal')
                 brain.add_data(grand_average_stc, colormap=colormap, clim=clim, colorbar=False, hemi='lh')
                 brain.add_data(grand_average_stc, colormap=colormap, clim=clim, colorbar=False, hemi='rh')
-                fig_fname = op.join(brain_plots_dir, f'{profile_name}_{band}_{window_name}.png')
+                fig_fname = op.join(brain_plots_dir, f'{safe_profile_name}_{band}_{window_name}.png')
                 brain.save_image(fig_fname)
                 brain.close()
 
@@ -269,7 +270,7 @@ if __name__ == "__main__":
                 cbar = ColorbarBase(cbar_ax, cmap=colormap, norm=norm, orientation='horizontal')
                 cbar.set_ticks(ticks)
                 cbar.set_ticklabels([f"{t:.0f}" for t in ticks])
-                cbar_fname = op.join(brain_plots_dir, f'{profile_name}_{band}_{window_name}_colorbar.png')
+                cbar_fname = op.join(brain_plots_dir, f'{safe_profile_name}_{band}_{window_name}_colorbar.png')
                 cbar_fig.savefig(cbar_fname, transparent=True, dpi=100)
                 plt.close(cbar_fig)
 
